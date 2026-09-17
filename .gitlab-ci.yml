@@ -1,24 +1,18 @@
 ###############################################################################
-# .gitlab-ci.yml
-# ----------------------------------------------------------------------------
-# Pipeline "All Green" para despliegue de Admisiones UNAC.
+# .gitlab-ci.yml — Pipeline "All Green" para Admisiones UNAC
 #
 # Stages:
-#   build    -> compila el front-end (npm ci && npm run build)
+#   build    -> compila el front-end
 #   validate -> terraform init -backend=false + validate + fmt
-#   plan     -> terraform plan con los archivos reales
-#   apply    -> terraform apply + (en paralelo) sincroniza dist/ al bucket S3
-#   smoke    -> hace un curl a la URL pública y valida el HTML
+#   plan     -> terraform plan (con AMI real)
+#   apply    -> terraform apply + (en paralelo) sync de dist/ al bucket S3
+#   smoke    -> curl al endpoint público, valida que sirve la app
 #   destroy  -> terraform destroy automático (deja todo limpio)
 #
 # Variables requeridas en GitLab (Settings > CI/CD > Variables):
-#   AWS_ACCESS_KEY_ID
-#   AWS_SECRET_ACCESS_KEY
-#   TF_VAR_ami_id      <- ID de la AMI personalizada (Linux + Nginx)
-#
-# Variables opcionales:
-#   TF_VAR_region      (default: us-east-2)
-#   TF_VAR_instance_type (default: t3.micro)
+#   AWS_ACCESS_KEY_ID       (masked + protected)
+#   AWS_SECRET_ACCESS_KEY   (masked + protected)
+#   TF_VAR_ami_id           (ej: ami-0497c3363f8a186f8)
 ###############################################################################
 
 stages:
@@ -32,14 +26,6 @@ stages:
 variables:
   TF_ROOT: "terraform"
   TF_IN_AUTOMATION: "true"
-  # Si GitLab no las inyecta, intenta leer ~/.aws/credentials
-  AWS_SHARED_CREDENTIALS_FILE: "$CI_PROJECT_DIR/.aws-credentials"
-
-default:
-  before_script:
-    - echo "Mostrando configuración AWS..."
-    - aws --version
-    - test -n "$AWS_ACCESS_KEY_ID" && echo "AWS_ACCESS_KEY_ID presente" || echo "AWS_ACCESS_KEY_ID NO presente"
 
 # ----------------------------------------------------------------------------
 # 1) Build del front-end
@@ -52,7 +38,6 @@ build:
     - npm --version
     - npm ci
     - npm run build
-    - ls -la dist/
   artifacts:
     paths:
       - dist/
@@ -79,7 +64,7 @@ terraform-validate:
     - if: $CI_COMMIT_BRANCH
 
 # ----------------------------------------------------------------------------
-# 3) terraform plan
+# 3) terraform plan (lee TF_VAR_ami_id del entorno automáticamente)
 # ----------------------------------------------------------------------------
 terraform-plan:
   stage: plan
@@ -88,7 +73,7 @@ terraform-plan:
   script:
     - cd "$TF_ROOT"
     - terraform init -input=false
-    - terraform plan -input=false -out=plan.tfplan -var="ami_id=$TF_VAR_ami_id"
+    - terraform plan -input=false -out=plan.tfplan
   artifacts:
     paths:
       - $TF_ROOT/plan.tfplan
@@ -98,7 +83,7 @@ terraform-plan:
     - if: $CI_COMMIT_BRANCH
 
 # ----------------------------------------------------------------------------
-# 4a) terraform apply
+# 4a) terraform apply y exporta outputs como dotenv
 # ----------------------------------------------------------------------------
 terraform-apply:
   stage: apply
@@ -107,14 +92,14 @@ terraform-apply:
   script:
     - cd "$TF_ROOT"
     - terraform init -input=false
-    - terraform apply -auto-approve -var="ami_id=$TF_VAR_ami_id" plan.tfplan
-    - terraform output -json > outputs.json
+    - terraform apply -auto-approve plan.tfplan
     - |
       APP_URL=$(terraform output -raw app_url)
       S3_BUCKET=$(terraform output -raw s3_bucket)
-      echo "APP_URL=$APP_URL" > deploy.env
-      echo "S3_BUCKET=$S3_BUCKET" >> deploy.env
-      echo "EC2_PUBLIC_IP=$(terraform output -raw public_ip)" >> deploy.env
+      PUBLIC_IP=$(terraform output -raw public_ip)
+      echo "APP_URL=$APP_URL"       > deploy.env
+      echo "S3_BUCKET=$S3_BUCKET"   >> deploy.env
+      echo "PUBLIC_IP=$PUBLIC_IP"   >> deploy.env
       echo "Aplicación disponible en: $APP_URL"
   artifacts:
     paths:
@@ -127,8 +112,8 @@ terraform-apply:
     - if: $CI_COMMIT_BRANCH
 
 # ----------------------------------------------------------------------------
-# 4b) Subir el sitio estático al bucket S3 (en paralelo con terraform-apply
-#     pero empezando después de que el bucket exista).
+# 4b) Subir dist/ al bucket S3
+# Necesita: artifact dist/ (del job build) y dotenv con S3_BUCKET (de apply)
 # ----------------------------------------------------------------------------
 upload-site:
   stage: apply
@@ -140,23 +125,25 @@ upload-site:
       artifacts: true
   script:
     - echo "Subiendo dist/ a s3://$S3_BUCKET/"
-    - aws s3 sync dist/ "s3://$S3_BUCKET/" --delete --region "${TF_VAR_region:-us-east-2}"
-    - aws s3 ls "s3://$S3_BUCKET/" --region "${TF_VAR_region:-us-east-2}"
+    - aws s3 sync dist/ "s3://$S3_BUCKET/" --delete --region us-east-2
+    - aws s3 ls "s3://$S3_BUCKET/" --region us-east-2
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
 
 # ----------------------------------------------------------------------------
-# 5) Smoke test (espera a que EC2 termine el user_data y verifica el HTML)
+# 5) Smoke test: espera al user_data de la EC2 y verifica el HTML
 # ----------------------------------------------------------------------------
 smoke-test:
   stage: smoke
   image: curlimages/curl:8.7.1
-  needs: ["upload-site"]
+  needs:
+    - job: upload-site
+    - job: terraform-apply
+      artifacts: true   # <- para tener $APP_URL del dotenv
   script:
     - echo "URL objetivo: $APP_URL"
     - |
-      echo "Esperando que la EC2 termine el bootstrap (user_data puede tardar)..."
       for i in $(seq 1 30); do
         if curl -fsSL --max-time 10 "$APP_URL" | grep -q "Admisiones UNAC"; then
           echo "OK: la app responde correctamente (intento $i)"
@@ -165,14 +152,14 @@ smoke-test:
         echo "Intento $i: la app aún no responde como se espera, esperando 10s..."
         sleep 10
       done
-    - echo "ERROR: la app no respondió tras 5 minutos."
-    - exit 1
+      echo "ERROR: la app no respondió tras 5 minutos."
+      exit 1
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
 
 # ----------------------------------------------------------------------------
-# 6) terraform destroy (automático al final del pipeline para dejarlo limpio)
+# 6) terraform destroy (automático, deja todo limpio)
 # ----------------------------------------------------------------------------
 terraform-destroy:
   stage: destroy
@@ -181,9 +168,7 @@ terraform-destroy:
   script:
     - cd "$TF_ROOT"
     - terraform init -input=false
-    - terraform destroy -auto-approve -var="ami_id=$TF_VAR_ami_id"
-  when: on_success
-  allow_failure: false
+    - terraform destroy -auto-approve
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
