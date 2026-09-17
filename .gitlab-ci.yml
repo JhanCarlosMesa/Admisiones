@@ -51,7 +51,9 @@ build:
 # ----------------------------------------------------------------------------
 terraform-validate:
   stage: validate
-  image: hashicorp/terraform:1.9
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
   needs: ["build"]
   script:
     - cd "$TF_ROOT"
@@ -68,7 +70,9 @@ terraform-validate:
 # ----------------------------------------------------------------------------
 terraform-plan:
   stage: plan
-  image: hashicorp/terraform:1.9
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
   needs: ["terraform-validate"]
   script:
     - cd "$TF_ROOT"
@@ -87,7 +91,9 @@ terraform-plan:
 # ----------------------------------------------------------------------------
 terraform-apply:
   stage: apply
-  image: hashicorp/terraform:1.9
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
   needs: ["terraform-plan"]
   script:
     - cd "$TF_ROOT"
@@ -153,7 +159,9 @@ smoke-test:
 # ----------------------------------------------------------------------------
 terraform-destroy:
   stage: destroy
-  image: hashicorp/terraform:1.9
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
   needs: ["smoke-test"]
   script:
     - cd "$TF_ROOT"
