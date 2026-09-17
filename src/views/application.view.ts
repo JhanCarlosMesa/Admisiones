@@ -2,6 +2,7 @@ import type { Account } from "../types";
 import { badgeClassForStatus, renderShell, setFieldError, setFormMessage } from "../utils/dom";
 import { listByApplicant, submitApplication } from "../services/admissions.service";
 import { getPrograms, getProgram } from "../services/catalog.service";
+import { STORAGE_KEYS } from "../data/keys";
 
 function selectField(label: string, name: string, options: string[]): string {
   return `<label>${label}<select name="${name}" required><option value="">Selecciona una opción</option>${options
@@ -27,9 +28,18 @@ function renderTracking(account: Account): void {
 
 function renderForm(account: Account): void {
   const programs = getPrograms();
+  const pendingProgramId = sessionStorage.getItem(STORAGE_KEYS.pendingProgram) ?? "";
+  if (pendingProgramId) sessionStorage.removeItem(STORAGE_KEYS.pendingProgram);
+  const prefillNote = pendingProgramId
+    ? `<p class="prefill-note">&#10003; Preseleccionamos el programa que elegiste al registrarte. Puedes cambiarlo si lo deseas.</p>`
+    : "";
+
   renderShell(
-    `<section class="enrollment-card"><div class="enrollment-header"><div><span class="eyebrow">Nueva solicitud</span><h1>Inicia tu inscripción</h1><p>Completa la información para comenzar tu proceso de admisión.</p></div><span class="step-badge">Paso 1 de 3</span></div><form id="application-form" class="enrollment-form" novalidate><div class="section-heading"><span>01</span><div><h2>Elige tu programa</h2><p>Selecciona la opción académica.</p></div></div><div class="form-grid"><label>Programa académico<select name="programId" required><option value="">Selecciona una opción</option>${programs
-      .map((program) => `<option value="${program.id}">${program.name}</option>`)
+    `<section class="enrollment-card"><div class="enrollment-header"><div><span class="eyebrow">Nueva solicitud</span><h1>Inicia tu inscripción</h1><p>Completa la información para comenzar tu proceso de admisión.</p>${prefillNote}</div><span class="step-badge">Paso 1 de 3</span></div><form id="application-form" class="enrollment-form" novalidate><div class="section-heading"><span>01</span><div><h2>Elige tu programa</h2><p>Selecciona la opción académica.</p></div></div><div class="form-grid"><label>Programa académico<select name="programId" required><option value="">Selecciona una opción</option>${programs
+      .map(
+        (program) =>
+          `<option value="${program.id}" ${program.id === pendingProgramId ? "selected" : ""}>${program.name}</option>`,
+      )
       .join("")}</select><small class="field-error"></small></label>${selectField("Nivel académico", "level", ["Pregrado", "Posgrado"])}<label>Ciudad de residencia<input name="city" required><small class="field-error"></small></label>${selectField("Modalidad", "modality", ["Presencial", "Virtual"])}</div><div class="section-heading credentials-heading"><span>02</span><div><h2>Cuéntanos sobre ti</h2><p>Esta información nos ayuda a conocerte.</p></div></div><label class="wide-label">Motivación<textarea name="motivation" rows="4" required></textarea><small class="field-error"></small></label><div id="form-message" class="form-message"></div><div class="enrollment-footer"><a class="secondary-button" href="#home">Cancelar</a><button class="primary-button" type="submit">Crear solicitud &rarr;</button></div></form></section>`,
     "Iniciar inscripción",
     account,

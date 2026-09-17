@@ -10,16 +10,23 @@ import { renderApplicationView } from "./views/application.view";
 import { renderAdminView } from "./views/admin.view";
 import { renderRegistrationView } from "./views/course-registration.view";
 import { renderHistoryView } from "./views/history.view";
+import { renderPensumView } from "./views/pensum.view";
+import { renderProgramChangeView } from "./views/program-change.view";
+import { renderPrerequisitesView } from "./views/prerequisites.view";
+import { renderFaqView } from "./views/faq.view";
 import { renderNotFoundView } from "./views/not-found.view";
 
-function parseHash(): { path: string; query: URLSearchParams } {
+function parseHash(): { path: string; query: URLSearchParams; programId?: string } {
   const raw = location.hash.replace(/^#/, "");
-  const [path, query] = raw.split("?");
-  return { path: path || "public", query: new URLSearchParams(query ?? "") };
+  const [pathAndId, query] = raw.split("?");
+  const segments = pathAndId.split("/");
+  const path = segments[0] || "public";
+  const programId = segments[1];
+  return { path, query: new URLSearchParams(query ?? ""), programId };
 }
 
 export function route(): void {
-  const { path, query } = parseHash();
+  const { path, query, programId } = parseHash();
   const account = currentAccount();
 
   if (path === "register") return renderRegisterView();
@@ -27,6 +34,17 @@ export function route(): void {
   if (path === "recovery") return renderRecoveryView();
   if (path === "reset") return renderResetView(query.get("token") ?? "");
   if (path === "public") return renderPublicView();
+
+  if (path === "pensum") {
+    const id = programId ?? query.get("id") ?? "";
+    if (!id) {
+      location.hash = "public";
+      return;
+    }
+    return renderPensumView(id);
+  }
+
+  if (path === "faq") return renderFaqView(account);
 
   if (!account) {
     location.hash = "login";
@@ -66,6 +84,22 @@ export function route(): void {
       return;
     }
     return renderHistoryView(account);
+  }
+
+  if (path === "program-change") {
+    if (account.role !== "Estudiante") {
+      location.hash = "home";
+      return;
+    }
+    return renderProgramChangeView(account);
+  }
+
+  if (path === "prerequisites") {
+    if (account.role !== "Estudiante") {
+      location.hash = "home";
+      return;
+    }
+    return renderPrerequisitesView(account);
   }
 
   return renderNotFoundView(account);

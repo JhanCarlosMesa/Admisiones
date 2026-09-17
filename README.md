@@ -12,9 +12,9 @@ fácil conectar un backend real más adelante.
 src/
   types.ts                     Modelos de datos (Account, AdmissionApplication, Course, ...)
   data/
-    keys.ts                    Claves de localStorage
+    keys.ts                    Claves de localStorage/sessionStorage
     store.ts                   Helpers genéricos de lectura/escritura
-    seed.ts                    Datos de prueba (programas, materias, cuentas demo)
+    seed.ts                    Datos de prueba (programas, pensum, cuentas demo)
   utils/
     crypto.ts                  Hash de contraseñas (SHA-256 + sal) y tokens
     validators.ts              Reglas de validación de formularios
@@ -27,9 +27,35 @@ src/
   views/                       Una función de render por pantalla
   router.ts                    Enrutamiento por hash con protección por rol
   main.ts                      Punto de entrada
+  style.css                    Sistema visual (tipografía, color, componentes, animaciones)
 ```
 
-## Funciones implementadas
+## Novedades de esta versión
+
+### Identidad visual renovada
+- Rediseño completo del sistema visual: paleta institucional azul marino + dorado,
+  tipografía serif (Fraunces) para títulos y sans-serif (Inter) para el resto,
+  tarjetas con jerarquía real, sombras suaves y una sola animación de entrada por
+  vista (además de transiciones de estado en botones, tarjetas y acordeones).
+- Botones, formularios, tablas, insignias de estado y la portada pública fueron
+  rediseñados para transmitir la seriedad de un sistema universitario real.
+- Diseño responsivo y accesible: foco visible por teclado, contraste cuidado y
+  soporte para `prefers-reduced-motion`.
+
+### Elegir programa desde el registro, viendo el pensum
+- El formulario de registro (`#register`) ahora incluye, como primer paso, una
+  cuadrícula con todos los programas disponibles. Cada tarjeta permite **ver el
+  pensum completo por semestre** (materias y créditos) antes de decidir, y
+  seleccionar el programa al que se desea aspirar.
+- Al crear la cuenta, el programa elegido se guarda temporalmente
+  (`sessionStorage`) y se **prellena automáticamente** en el formulario de
+  solicitud de admisión (`#enrollment`) la primera vez que el nuevo aspirante
+  inicia sesión, sin impedir que lo cambie si lo desea.
+
+### Pensum ampliado
+- Se amplió el número de materias por programa (entre ~23 y ~31 materias según la
+  carrera, distribuidas por semestre con sus créditos), tanto en la vista pública
+  de programas como en el nuevo selector de registro.
 
 ### Cuentas y seguridad
 - Registro de aspirantes con contraseña **hasheada** (SHA-256 + sal aleatoria por
@@ -38,10 +64,7 @@ src/
 - **Recuperación de contraseña real**: genera un token de un solo uso, válido por
   30 minutos, guardado aparte de las cuentas. Como el proyecto no tiene backend de
   correo, la pantalla de recuperación simula el envío mostrando en pantalla el
-  enlace que normalmente llegaría al correo del usuario. Para conectar un envío de
-  correo real, solo hay que reemplazar esa simulación en
-  `src/views/recovery.view.ts` por una llamada a tu servicio de correo, usando el
-  mismo token generado por `requestPasswordRecovery`.
+  enlace que normalmente llegaría al correo del usuario.
 
 ### Proceso de admisión
 - Formulario de solicitud de inscripción con validación completa.
@@ -65,7 +88,7 @@ src/
 ### Roles del sistema
 | Rol         | Puede hacer |
 |-------------|-------------|
-| Aspirante   | Registrarse, radicar su solicitud de admisión, ver su estado |
+| Aspirante   | Registrarse eligiendo programa, radicar su solicitud de admisión, ver su estado |
 | Estudiante  | Matricular/cancelar materias, ver su historial académico |
 | Staff       | Revisar y decidir solicitudes de admisión |
 
@@ -89,6 +112,10 @@ npm run dev       # servidor de desarrollo
 npm run build     # build de producción (valida tipos con tsc y compila con Vite)
 npm run preview   # sirve el build de producción localmente
 ```
+
+> Nota: si ya habías corrido una versión anterior de este proyecto en el mismo
+> navegador, borra los datos del sitio (o usa una ventana de incógnito) para que
+> se vuelva a sembrar el catálogo ampliado de programas y materias.
 
 ## Limitaciones a tener en cuenta (por ser un proyecto sin backend)
 

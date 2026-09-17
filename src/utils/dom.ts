@@ -15,10 +15,19 @@ function buildNav(account?: Account): string {
   return `<nav class="topbar-nav" aria-label="Navegaci\u00f3n del portal">${links.join("")}</nav>`;
 }
 
+function themeToggle(): string {
+  return '<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Cambiar tema"><span class="theme-toggle-icon" aria-hidden="true">&#9788;</span></button>';
+}
+
 export function renderShell(content: string, title: string, account?: Account): void {
   const app = document.querySelector<HTMLDivElement>("#app");
   if (!app) return;
-  app.innerHTML = `<header class="topbar"><a class="brand" href="#public" aria-label="UNAC, inicio"><span class="brand-mark" aria-hidden="true">A</span><span>UNAC</span></a>${buildNav(account)}</header><main class="page-shell"><nav class="breadcrumbs"><a href="#public">Inicio</a><span>/</span><strong>${title}</strong></nav>${content}</main><footer><span>&copy; 2026 UNAC</span><span>Admisiones <b>&bull;</b> Privacidad</span></footer>`;
+  app.innerHTML = `<header class="topbar"><a class="brand" href="#public" aria-label="UNAC, inicio"><span class="brand-mark" aria-hidden="true">A</span><span>UNAC</span></a><div class="topbar-right">${buildNav(account)}${themeToggle()}</div></header><main class="page-shell"><nav class="breadcrumbs"><a href="#public">Inicio</a><span>/</span><strong>${title}</strong></nav>${content}</main><footer><span>&copy; 2026 UNAC</span><span><a href="#faq">Preguntas frecuentes</a> &middot; Admisiones &middot; Privacidad</span></footer>`;
+  const themeBtn = document.querySelector<HTMLButtonElement>("#theme-toggle");
+  themeBtn?.addEventListener("click", async () => {
+    const { toggleTheme } = await import("../services/preferences.service");
+    toggleTheme();
+  });
 }
 
 export function setFieldError(
