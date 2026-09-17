@@ -109,9 +109,9 @@ terraform-apply:
       echo "Aplicación disponible en: $APP_URL"
   artifacts:
     paths:
-      - $TF_ROOT/outputs.json
+      - terraform/deploy.env
     reports:
-      dotenv: deploy.env
+      dotenv: terraform/deploy.env
     expire_in: 30 minutes
   rules:
     - if: $CI_COMMIT_TAG
