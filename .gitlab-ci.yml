@@ -142,18 +142,8 @@ smoke-test:
     - job: terraform-apply
       artifacts: true   # <- para tener $APP_URL del dotenv
   script:
-    - echo "URL objetivo: $APP_URL"
-    - |
-      for i in $(seq 1 30); do
-        if curl -fsSL --max-time 10 "$APP_URL" | grep -q "Admisiones UNAC"; then
-          echo "OK: la app responde correctamente (intento $i)"
-          exit 0
-        fi
-        echo "Intento $i: la app aún no responde como se espera, esperando 10s..."
-        sleep 10
-      done
-      echo "ERROR: la app no respondió tras 5 minutos."
-      exit 1
+    - chmod +x ci/smoke.sh
+    - ./ci/smoke.sh
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
