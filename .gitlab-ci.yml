@@ -123,7 +123,9 @@ terraform-apply:
 # ----------------------------------------------------------------------------
 upload-site:
   stage: apply
-  image: amazon/aws-cli:2.17.0
+  image:
+    name: amazon/aws-cli:2.17.0
+    entrypoint: [""]
   needs:
     - job: build
       artifacts: true
