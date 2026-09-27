@@ -11,6 +11,7 @@ function buildNav(account?: Account): string {
     links.push('<a href="#history">Historial</a>');
   }
   if (account.role === "Staff") links.push('<a href="#admin">Panel de admisiones</a>');
+  links.push('<a href="#gestion">Indicadores de gesti&oacute;n</a>');
   links.push('<a href="#profile">Perfil</a>');
   return `<nav class="topbar-nav" aria-label="Navegaci\u00f3n del portal">${links.join("")}</nav>`;
 }
@@ -22,7 +23,7 @@ function themeToggle(): string {
 export function renderShell(content: string, title: string, account?: Account): void {
   const app = document.querySelector<HTMLDivElement>("#app");
   if (!app) return;
-  app.innerHTML = `<header class="topbar"><a class="brand" href="#public" aria-label="UNAC, inicio"><span class="brand-mark" aria-hidden="true">A</span><span>UNAC</span></a><div class="topbar-right">${buildNav(account)}${themeToggle()}</div></header><main class="page-shell"><nav class="breadcrumbs"><a href="#public">Inicio</a><span>/</span><strong>${title}</strong></nav>${content}</main><footer><span>&copy; 2026 UNAC</span><span><a href="#faq">Preguntas frecuentes</a> &middot; Admisiones &middot; Privacidad</span></footer>`;
+  app.innerHTML = `<header class="topbar"><a class="brand" href="#public" aria-label="UNAC, inicio"><span class="brand-mark" aria-hidden="true">A</span><span>UNAC</span></a><div class="topbar-right">${buildNav(account)}${themeToggle()}</div></header><main class="page-shell"><nav class="breadcrumbs"><a href="#public">Inicio</a><span>/</span><strong>${title}</strong></nav>${content}</main><footer><span>&copy; 2026 UNAC</span><span><a href="#faq">Preguntas frecuentes</a> &middot; <a href="#gestion">Indicadores de gesti&oacute;n</a> &middot; Admisiones &middot; Privacidad</span></footer>`;
   const themeBtn = document.querySelector<HTMLButtonElement>("#theme-toggle");
   themeBtn?.addEventListener("click", async () => {
     const { toggleTheme } = await import("../services/preferences.service");

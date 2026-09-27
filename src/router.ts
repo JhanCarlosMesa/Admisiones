@@ -14,6 +14,7 @@ import { renderPensumView } from "./views/pensum.view";
 import { renderProgramChangeView } from "./views/program-change.view";
 import { renderPrerequisitesView } from "./views/prerequisites.view";
 import { renderFaqView } from "./views/faq.view";
+import { renderGestionBpmView } from "./views/gestion-bpm.view";
 import { renderNotFoundView } from "./views/not-found.view";
 
 function parseHash(): { path: string; query: URLSearchParams; programId?: string } {
@@ -45,6 +46,8 @@ export function route(): void {
   }
 
   if (path === "faq") return renderFaqView(account);
+
+  if (path === "gestion") return renderGestionBpmView(account);
 
   if (!account) {
     location.hash = "login";

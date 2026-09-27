@@ -25,6 +25,10 @@ export function getEnrollmentHistory(studentId: string): Enrollment[] {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+export function listAllEnrollments(): Enrollment[] {
+  return getAll();
+}
+
 export function occupiedSeats(offeringId: string): number {
   return getAll().filter((item) => item.offeringId === offeringId && item.status === "Matriculada").length;
 }

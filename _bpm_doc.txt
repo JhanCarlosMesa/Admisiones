@@ -1,0 +1,288 @@
+ADMISIONES UNAC
+Indicadores de Gestión y Mapa de Procesos
+Documento de Gestión de Procesos de Negocio (BPM)
+Portal de Admisiones y Matrícula — Plataforma 100% front-end (Vite + TypeScript)
+Versión del documento 1.0 · 2026
+Tabla de contenido
+Tabla de contenido1
+1. Introducción y objetivo1
+2. Alcance del sistema1
+3. Actores y roles1
+4. Inventario de procesos1
+5. Mapas de proceso1
+5.1 Admisión de aspirantes1
+5.2 Matrícula de materias1
+5.3 Cambio de programa1
+5.4 Homologación de prerrequisitos externos1
+5.5 Recuperación de contraseña1
+6. Reglas de negocio vigentes (as-is)1
+7. Indicadores de gestión (KPI)1
+7.1 Admisiones1
+7.2 Matrícula1
+7.3 Cambios de programa y homologaciones1
+7.4 Contenido institucional y captación1
+8. Brecha identificada: meta de estudiantes para abrir un programa1
+8.1 Indicador propuesto1
+8.2 Cambios sugeridos al modelo de datos1
+9. Estados por entidad1
+10. Recomendaciones para la presentación BPM1
+1. Introducción y objetivo
+Este documento consolida, con fines de presentación en Gestión de Procesos de Negocio (BPM), el inventario de procesos, las reglas de negocio vigentes y los indicadores de gestión (KPI) del sistema de Admisiones y Matrícula de la UNAC. El contenido se basa en el comportamiento real implementado en el código fuente de la aplicación (capas de servicios, vistas y datos de siembra), de modo que cada indicador y cada paso de proceso descrito aquí corresponde a una regla que efectivamente se ejecuta en el sistema.
+Donde el sistema aún no define una meta o umbral de negocio —por ejemplo, el número mínimo de estudiantes para abrir un programa—, el documento lo señala explícitamente como una brecha y propone un indicador candidato para que el equipo académico/administrativo lo valide y parametrice.
+2. Alcance del sistema
+La plataforma cubre el ciclo completo de un aspirante hasta su graduación como estudiante activo, sin backend propio: toda la persistencia ocurre en el navegador (localStorage/sessionStorage). Los macroprocesos cubiertos son:
+Registro de cuenta y selección de programa de interés.
+Solicitud y decisión de admisión (Radicada → En revisión → Admitido/Rechazado).
+Matrícula de materias por periodo académico, con validación de créditos, choques de horario y cupos.
+Cambio de programa académico para estudiantes activos.
+Homologación de prerrequisitos cursados en otras instituciones.
+Panel de staff para decisiones de admisión, cambios de programa y homologaciones.
+Contenido institucional de apoyo: catálogo de programas/pensum, eventos, testimonios, FAQ y notificaciones.
+Nota: El sistema no gestiona pagos de matrícula, carga de documentos soportados, ni emite correos reales; la recuperación de contraseña se simula en pantalla. Estas limitaciones condicionan qué indicadores son medibles hoy con datos reales del sistema.
+3. Actores y roles
+El sistema define tres roles excluyentes, asignados automáticamente según el avance del aspirante en el proceso de admisión:
+Rol
+Cómo se obtiene
+Procesos que ejecuta
+Vistas / rutas asociadas
+Aspirante
+Rol por defecto al registrarse
+Radicar solicitud de admisión; consultar estado
+#register, #enrollment, #profile
+Estudiante
+Promoción automática cuando Staff decide "Admitido"
+Matricular/cancelar materias; ver historial; solicitar cambio de programa; declarar prerrequisitos
+#registration, #history, #program-change, #prerequisites
+Staff
+Cuenta institucional (sembrada)
+Decidir admisiones; aprobar/rechazar cambios de programa y homologaciones
+#admin
+4. Inventario de procesos
+Proceso
+Disparador
+Resultado esperado
+Dueño del proceso
+Admisión de aspirantes
+Envío del formulario de solicitud
+Solicitud Admitida o Rechazada
+Staff / Admisiones
+Matrícula de materias
+Aspirante admitido con periodo activo
+Estudiante matriculado dentro del límite de créditos
+Estudiante (autoservicio)
+Cambio de programa
+Solicitud del estudiante
+Cambio Aprobado o Rechazado
+Staff / Admisiones
+Homologación de prerrequisitos
+Declaración de materia externa
+Homologación Aprobada o Rechazada
+Staff / Académico
+Recuperación de contraseña
+Solicitud de token de recuperación
+Contraseña restablecida
+Autoservicio (simulado)
+5. Mapas de proceso
+5.1 Admisión de aspirantes
+El aspirante inicia sesión y accede a "Mi solicitud" (#enrollment).
+Si no tiene una solicitud activa, completa el formulario: programa, nivel, ciudad, modalidad y motivación.
+El sistema valida que no exista ya una solicitud activa para ese aspirante (estado distinto de "Rechazado"); si existe, bloquea una nueva solicitud.
+La solicitud se crea con estado "Radicada" y queda visible en el panel de Staff.
+Staff puede marcarla "En revisión" y luego decide "Admitido" o "Rechazado", con nota de revisión.
+Si la decisión es "Admitido", el sistema promueve automáticamente la cuenta de "Aspirante" a "Estudiante".
+El aspirante/estudiante puede seguir el estado de su trámite en cualquier momento desde "Mi solicitud".
+Nota: Regla vigente: un aspirante rechazado sí puede volver a radicar una nueva solicitud (hasActiveApplication excluye el estado "Rechazado").
+5.2 Matrícula de materias
+El estudiante ingresa a "Matrícula" (#registration); el sistema exige una admisión en estado "Admitido" y un periodo académico activo.
+Se muestra el pensum del programa filtrado por la oferta académica (CourseOffering) del periodo activo, agrupado por semestre.
+Al matricular una materia, el sistema valida en orden: (a) que no esté ya matriculada, (b) que no se supere el límite de créditos por periodo, (c) que no haya choque de horario con otra materia activa del mismo estudiante, (d) que existan cupos disponibles.
+Si todas las validaciones pasan, se crea un registro de matrícula con estado "Matriculada" y el cupo ocupado se recalcula en tiempo real.
+El estudiante puede cancelar una materia matriculada; el registro pasa a estado "Cancelada" y libera el cupo.
+Nota: Límite de créditos por periodo: 18 (constante MAX_CREDITS_PER_PERIOD). Cupo por oferta sembrado: 25 estudiantes (capacity en seed.ts). El choque de horario se evalúa por día + solapamiento de franjas horarias (timesOverlap).
+5.3 Cambio de programa
+El estudiante con admisión aprobada solicita cambio de programa (#program-change), indicando programa destino y motivo (mínimo 40 caracteres).
+El sistema bloquea una nueva solicitud si ya existe una en estado "Solicitada" o "En revisión" para ese estudiante.
+Staff revisa la solicitud desde el panel de administración y decide "Aprobada" o "Rechazada", con nota.
+El historial de solicitudes queda disponible para el estudiante y para Staff.
+5.4 Homologación de prerrequisitos externos
+El estudiante declara una materia cursada externamente: código, nombre, institución, año, nota (0.0–5.0) y observaciones.
+El registro se crea con estado "Pendiente".
+Staff aprueba o rechaza cada declaración desde el panel de administración, con nota de respuesta.
+El estudiante consulta el histórico de sus declaraciones y su estado.
+5.5 Recuperación de contraseña
+El usuario solicita recuperación con su correo (#recovery).
+El sistema genera un token de un solo uso, válido por 30 minutos, y lo asocia al correo (los tokens previos de ese correo se descartan).
+Como no existe envío real de correo, el enlace se muestra simulado en pantalla.
+Al usar el enlace válido, el usuario define una nueva contraseña; el token queda marcado como usado.
+Nota: Duración de sesión autenticada: 8 horas (SESSION_DURATION_MS). Las contraseñas se almacenan con hash SHA-256 + sal aleatoria por cuenta, nunca en texto plano.
+6. Reglas de negocio vigentes (as-is)
+Regla
+Valor / lógica actual
+Ubicación en el código
+Créditos máximos por periodo
+18 créditos por estudiante
+enrollment.service.ts — MAX_CREDITS_PER_PERIOD
+Cupo por oferta de materia
+25 cupos (valor sembrado uniforme)
+data/seed.ts — capacity
+Duplicidad de matrícula
+No se permite matricular dos veces la misma oferta en el periodo activo
+enrollment.service.ts — enroll()
+Choque de horario
+Mismo día + solapamiento de franja horaria entre ofertas activas del estudiante
+enrollment.service.ts — timesOverlap()
+Solicitud de admisión única
+No se permite una nueva solicitud si existe una activa (≠ Rechazado)
+admissions.service.ts — hasActiveApplication()
+Cambio de programa único en trámite
+No se permite nueva solicitud si hay una "Solicitada" o "En revisión"
+program-changes.service.ts — hasPendingProgramChange()
+Promoción de rol
+Aspirante → Estudiante automáticamente al ser "Admitido"
+admissions.service.ts — decide() → promoteToStudent()
+Vigencia del token de recuperación
+30 minutos, un solo uso
+auth.service.ts — RECOVERY_DURATION_MS
+Vigencia de sesión
+8 horas desde el login
+auth.service.ts — SESSION_DURATION_MS
+Mínimo de estudiantes para abrir un programa/oferta
+No implementado — no existe validación de tamaño mínimo de cohorte
+No aplica (brecha, ver sección 8)
+7. Indicadores de gestión (KPI)
+Los siguientes indicadores pueden calcularse hoy a partir de las estructuras de datos existentes (Enrollment, AdmissionApplication, CourseOffering, ProgramChangeRequest, ExternalPrerequisite, CampusEvent). Se agrupan por proceso; la meta sugerida es un punto de partida para validar con el área de admisiones.
+7.1 Admisiones
+Indicador
+Fórmula
+Fuente de datos
+Frecuencia
+Meta sugerida
+Tasa de conversión de admisión
+Admitidos / Total de solicitudes radicadas × 100
+AdmissionApplication.status
+Mensual
+≥ 60%
+Solicitudes pendientes de revisión
+Conteo de status = "Radicada" + "En revisión"
+listAll() (admissions.service.ts)
+Diaria
+< 15 solicitudes
+Tiempo promedio de decisión
+Promedio(reviewedAt − createdAt)
+AdmissionApplication.createdAt / reviewedAt
+Mensual
+≤ 5 días hábiles
+Solicitudes por programa
+Conteo agrupado por programId
+AdmissionApplication.programId
+Mensual
+Informativo
+7.2 Matrícula
+Indicador
+Fórmula
+Fuente de datos
+Frecuencia
+Meta sugerida
+Ocupación de la oferta académica
+occupiedSeats(oferta) / capacity × 100
+enrollment.service.ts — availableSeats()
+Por periodo
+70%–95%
+Uso del cupo de créditos
+creditsInUse(estudiante) / 18 × 100
+enrollment.service.ts — creditsInUse()
+Por periodo
+≥ 80% (carga completa)
+Ofertas con cupo agotado
+Conteo de ofertas con availableSeats = 0
+catalog.service.ts + enrollment.service.ts
+Semanal (en apertura)
+< 10% de la oferta total
+Tasa de cancelación de matrícula
+Enrollment.status = "Cancelada" / Total matrículas del periodo × 100
+Enrollment.status
+Por periodo
+< 8%
+7.3 Cambios de programa y homologaciones
+Indicador
+Fórmula
+Fuente de datos
+Frecuencia
+Meta sugerida
+Tasa de aprobación de cambio de programa
+Aprobadas / (Aprobadas + Rechazadas) × 100
+ProgramChangeRequest.status
+Trimestral
+Informativo
+Solicitudes de cambio pendientes
+Conteo status = "Solicitada" + "En revisión"
+listAllProgramChanges()
+Semanal
+< 10 solicitudes
+Tasa de aprobación de homologaciones
+Aprobada / Total declaradas × 100
+ExternalPrerequisite.status
+Trimestral
+Informativo
+7.4 Contenido institucional y captación
+Indicador
+Fórmula
+Fuente de datos
+Frecuencia
+Meta sugerida
+Ocupación de eventos institucionales
+enrolled / capacity × 100 por evento
+CampusEvent.enrolled / capacity
+Por evento
+≥ 50%
+Alcance del FAQ por categoría
+Consultas filtradas / Total FAQ activas
+content.service.ts — searchFaq()
+Mensual
+Informativo
+8. Brecha identificada: meta de estudiantes para abrir un programa
+El código no incluye ninguna regla de "cupo mínimo" o "punto de equilibrio" para decidir si una oferta académica o un programa se abre en un periodo determinado. Cada CourseOffering nace con un cupo máximo (capacity) sembrado en 25, pero no existe un umbral mínimo de matriculados que dispare la apertura, el cierre o la fusión de un grupo. Esta sección propone cómo formalizarlo.
+8.1 Indicador propuesto
+Indicador
+Fórmula propuesta
+Dato que falta hoy
+Meta sugerida (a validar)
+Cumplimiento de cupo mínimo de apertura
+matriculados(oferta) / minEnrollment(oferta) × 100
+Campo minEnrollment en CourseOffering (o a nivel Program)
+100% antes de la fecha de cierre de matrícula
+Programas en riesgo de no apertura
+Conteo de ofertas con matriculados < minEnrollment a N días del cierre
+Fecha de cierre de matrícula por periodo (no existe en Period)
+0 programas en riesgo
+8.2 Cambios sugeridos al modelo de datos
+Agregar minEnrollment (número) a CourseOffering, o un valor por defecto a nivel Program si aplica a todas sus ofertas.
+Agregar enrollmentDeadline (fecha) a Period, para poder medir "días restantes" y generar alertas tempranas.
+Exponer en el panel de Staff un tablero de ofertas por debajo del mínimo, ordenado por fecha de cierre.
+Definir la política de negocio para ofertas que no alcanzan el mínimo: cancelar, fusionar con otro grupo, o abrir igualmente con aprobación excepcional.
+Nota: Mientras el negocio no defina el valor de minEnrollment, se recomienda un valor provisional razonable (por ejemplo, 40%–50% del cupo máximo, es decir 10–13 estudiantes sobre un cupo de 25) únicamente como referencia de arranque, sujeto a validación por programa.
+9. Estados por entidad
+Entidad
+Estados posibles
+Transición automática relevante
+AdmissionApplication
+Radicada → En revisión → Admitido / Rechazado
+Admitido promueve la cuenta a rol Estudiante
+Enrollment (matrícula)
+Matriculada → Cancelada
+Cancelada libera el cupo de la oferta
+ProgramChangeRequest
+Solicitada → En revisión → Aprobada / Rechazada
+Ninguna (decisión manual de Staff)
+ExternalPrerequisite
+Pendiente → Aprobada / Rechazada
+Ninguna (decisión manual de Staff)
+RecoveryToken
+Vigente → Usado / Expirado (30 min)
+Expira automáticamente por tiempo
+10. Recomendaciones para la presentación BPM
+Presentar la sección 5 (mapas de proceso) como diagramas de flujo (BPMN o carriles por rol) apoyándose en los pasos numerados de este documento.
+Usar la sección 6 como base para el catálogo de "reglas de negocio" del proceso, útil para auditoría y para pruebas de aceptación.
+Usar la sección 7 como punto de partida de un tablero de control (dashboard) por proceso; hoy los datos existen en localStorage, por lo que un backend real permitiría históricos y series de tiempo.
+Cerrar la presentación con la brecha de la sección 8 como una mejora priorizada: es el único proceso mencionado por el negocio (apertura de programas por número de estudiantes) que aún no tiene soporte en el sistema.
+Validar con el área académica los valores de meta sugeridos (marcados como "a validar" o "informativo") antes de publicarlos como metas oficiales.

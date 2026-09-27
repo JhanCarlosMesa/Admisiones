@@ -483,7 +483,7 @@ function syncCatalog(): void {
   writeList(STORAGE_KEYS.courses, mergedCourses);
 }
 
-const SCHEMA_VERSION = "4";
+const SCHEMA_VERSION = "5";
 
 export async function seed(): Promise<void> {
   if (localStorage.getItem(STORAGE_KEYS.seeded) === SCHEMA_VERSION) {
@@ -790,7 +790,7 @@ export async function seed(): Promise<void> {
     {
       id: "FAQ-1",
       category: "Admisiones",
-      question: "¿Cuáles son los requisitos para admission?",
+      question: "¿Cuáles son los requisitos para admisión?",
       answer: "Necesitas ser bachiller, presentar tu documento de identidad, resultados de pruebas Saber 11 y completar el formulario de inscripción. Para algunos programas también se requiere una entrevista personal.",
     },
     {
