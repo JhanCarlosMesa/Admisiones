@@ -1,0 +1,65 @@
+{
+  "name": "Admisiones - Notificación nuevo Aspirante",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nuevo-aspirante",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook - Nuevo Aspirante",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REEMPLAZAR_CON_TU_CHAT_ID",
+        "text": "=🎓 *Nuevo Aspirante - UNAC*\n\n*Nombre:* {{$json.body.nombre}}\n*Programa:* {{$json.body.programa}}\n*Email:* {{$json.body.email}}\n*Teléfono:* {{$json.body.telefono}}\n\n_Enviado: {{$now.toFormat('yyyy-MM-dd HH:mm')}}_",
+        "additionalFields": {}
+      },
+      "id": "telegram-1",
+      "name": "Telegram - Notificar Staff",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\", \"notificado\": true }",
+        "options": {}
+      },
+      "id": "respond-1",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Nuevo Aspirante": {
+      "main": [
+        [
+          { "node": "Telegram - Notificar Staff", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Telegram - Notificar Staff": {
+      "main": [
+        [
+          { "node": "Respond OK", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "admisiones" }
+  ]
+}

@@ -75,6 +75,20 @@ function renderForm(account: Account): void {
       setFormMessage(result.message, "error");
       return;
     }
+
+    // Notificar al Staff via n8n -> Telegram (fire-and-forget; no bloquea la UI)
+    const program = getProgram(String(data.get("programId")));
+    void fetch("https://jhanc.app.n8n.cloud/webhook/nuevo-aspirante", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: `${account.firstName} ${account.lastName}`.trim(),
+        programa: program?.name ?? "—",
+        email: account.email,
+        telefono: account.phone,
+      }),
+    }).catch((err) => console.warn("[n8n] Notificación no enviada:", err));
+
     renderTracking(account);
   });
 }
