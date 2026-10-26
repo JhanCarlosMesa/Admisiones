@@ -1,0 +1,60 @@
+
+ELEMENTOS CLAVE PARA UNA SOLUCIÓN BLOCKCHAIN EN ADMISIONES Y REGISTRO ACADÉMICO
+Corporación Universitaria Adventista (UNAC)
+📌 Resumen Ejecutivo:
+El presente documento define el marco conceptual, operativo, técnico y reglamentario para la implementación de una arquitectura Blockchain orientada a la verificación, expedición y trazabilidad de títulos, diplomas, certificados académicos y trámites de admisión en la Corporación Universitaria Adventista (UNAC). Incluye una rúbrica cualitativa y cuantitativa para la evaluación de propuestas tecnológicas.
+
+1. Introducción y Contexto Institucional
+La Corporación Universitaria Adventista (UNAC), en su compromiso con la excelencia académica, la integridad institucional y la innovación tecnológica, enfrenta el reto de modernizar sus procesos de Admisiones y Registro Académico. La adopción de la tecnología Blockchain ofrece un mecanismo inmutable, descentralizado y verificable en tiempo real para respaldar el ciclo de vida estudiantil desde el ingreso hasta la titulación.
+2. Elementos Fundamentales para la Solución Blockchain
+2.1. Alcance y Casos de Uso
+• Admisiones:  Verificación de certificados de secundaria, pruebas de admisión (SABER 11 / homologaciones) y documentos de identidad de forma digital e inmutable.
+• Registro Académico:  Emisión de notas por semestre, certificados de estudio, constancias de matrícula y actas de grado en cadena de bloques.
+• Titulación y Microcredenciales:  Emisión de títulos profesionales, posgrados y microcredenciales con estándares internacionales (e.g., Blockcerts) para auto-soberanía del estudiante.
+2.2. Arquitectura de Red y Consenso
+• Tipo de Red:  Se recomienda una red permisionada o federada (e.g., Hyperledger Fabric, Polygon Edge o Ethereum con PoA) que garantice el control de acceso a nodos autorizados (UNAC, Red Educativa Adventista, entidades de control).
+• Mecanismo de Consenso:  Proof of Authority (PoA) o Proof of Stake (PoS) para minimizar costos de transacción (gas fees) y consumo energético, alineándose con la ética de sostenibilidad de la institución.
+2.3. Privacidad y Tratamiento de Datos (Compliance)
+• Principio Off-Chain:  En cumplimiento de la Ley 1581 de 2012 (Habeas Data Colombia) y normativas internacionales (GDPR), los Datos Personales Sensibles NO deben guardarse directamente en la blockchain.
+• Almacenamiento Hash:  La blockchain almacenará únicamente hashes criptográficos (SHA-256) de los documentos y credenciales, garantizando autenticidad sin vulnerar la privacidad.
+2.4. Integración Técnica con Sistemas UNAC
+• Integración ERP/SIS:  Conexión fluida mediante REST APIs / GraphQL entre el ERP de la UNAC (ERP Académico, CRM de Admisiones) y la red Blockchain.
+• Contratos Inteligentes:  Implementación de Smart Contracts para automatizar la expedición de certificados al momento de la firma digital de paz y salvos.
+2.5. Identidad Digital Sovereign (SSI)
+• Identidad Auto-Soberana:  Permitir que el estudiante conserve su credencial verificable en una billetera digital (Wallet) bajo estándares W3C Verifiable Credentials.
+3. Rúbrica de Evaluación de la Solución Blockchain
+A continuación se presenta la rúbrica multidimensional para evaluar proveedores, desarrollos o propuestas técnicas de soluciones Blockchain para Admisiones y Registro en la UNAC. La puntuación total es de 100 puntos.
+Criterio
+Peso
+Excelente (4-5)
+Aceptable (2-3)
+Deficiente (0-1)
+1. Arquitectura y Seguridad
+25%
+Red permisionada escalable, cifrado robusto, consenso eficiente (PoA/PoS) y cero riesgo de sobrecostos por transacciones.
+Red funcional pero con costos de transacción moderados o dependencia de terceros centralizados.
+Red pública ineficiente, altos costos por gas, o vulnerabilidades de seguridad identificadas.
+2. Cumplimiento Legal y Privacidad
+20%
+Cumple 100% Ley 1581 / Habeas Data. Datos sensibles almacenados Off-Chain; solo hashes en la red. Gestión de revocabilidad.
+Cumplimiento parcial; requiere ajustes para garantizar la no persistencia de datos personales en el libro mayor.
+Almacena datos personales sensibles directamente en blockchain, violando normativas de privacidad.
+3. Interoperabilidad e Integración
+20%
+API REST robusta, compatibilidad nativa con ERP UNAC, soporte para W3C Verifiable Credentials y Blockcerts.
+Integración posible mediante desarrollo personalizado extenso. Compatibilidad limitada con estándares globales.
+Sistema aislado (Silo), sin capacidad de integración automatizada con el sistema académico actual.
+4. Experiencia de Usuario (UX/UI)
+15%
+Portal intuitivo para Admisiones y Registro; verificación pública instantánea mediante QR o código único sin friction.
+Interfaz funcional pero compleja para administrativos o estudiantes. Proceso de verificación requiere pasos manuales.
+Interfaz confusa, difícil de usar, requiere conocimientos técnicos avanzados de blockchain por parte del usuario.
+5. Sostenibilidad Financiera y Soporte
+20%
+Modelo de costos claro, escalable, bajo costo de mantenimiento, soporte técnico SLA 24/7 y plan de capacitación institucional.
+Costos aceptables pero con tarifas ocultas por volumen de certificados. Soporte básico.
+Costos insostenibles a largo plazo, sin esquema claro de soporte técnico ni garantía de mantenimiento.
+4. Recomendaciones Finales de Implementación
+1. Fase Piloto:  Realizar una prueba de concepto (PoC) enfocada únicamente en la emisión de actas de grado y diplomas digitales.
+2. Capacitación:  Capacitar al equipo administrativo de Admisiones y Registro en la gestión de llaves privadas e identidades institucionales.
+3. Divulgación:  Difundir entre egresados y empleadores el mecanismo de verificación inmediata mediante código QR.

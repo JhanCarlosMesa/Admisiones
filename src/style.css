@@ -2282,6 +2282,313 @@ textarea.invalid {
 .notification-danger { border-left-color: var(--red-700); }
 .notification-danger .notification-icon { background: var(--red-700); }
 
+.notification-date {
+  color: var(--muted-soft);
+  font-size: 12px;
+  font-family: var(--font-body);
+}
+
+.notifications-more {
+  justify-self: start;
+  color: var(--navy-700);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.notifications-more:hover { text-decoration: underline; }
+
+/* ==========================================================================
+   Progreso académico, lista de espera y registro de calificaciones
+   ========================================================================== */
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--navy-700), var(--gold-500));
+  transition: width 0.3s var(--ease);
+}
+
+.pending-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.pending-list small { color: var(--muted-soft); }
+
+.enrollment-prereq {
+  margin: 8px 0 0;
+  color: var(--muted-soft);
+  font-size: 12.5px;
+  font-family: var(--font-body);
+}
+
+.enrollment-blocked {
+  margin: 8px 0 0;
+  color: var(--red-700);
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.waitlist-button {
+  background: var(--amber-700);
+}
+
+.waitlist-card {
+  border-left: 4px solid var(--amber-700);
+}
+
+.grade-input {
+  width: 92px;
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+.grade-value {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.grade-good { color: var(--green-700); }
+.grade-bad { color: var(--red-700); }
+
+/* En dark mode los badges de estado usan texto sobre fondo oscuro, así que
+   el verde/rojo/ámbar de texto necesita una versión más clara. */
+[data-theme="dark"] .status-good { color: #63d19b; }
+[data-theme="dark"] .status-bad { color: #f0967f; }
+[data-theme="dark"] .status-warn { color: #e0b45c; }
+[data-theme="dark"] .grade-good { color: #63d19b; }
+[data-theme="dark"] .grade-bad { color: #f0967f; }
+[data-theme="dark"] .enrollment-blocked { color: #f0967f; }
+
+.grade-cell { text-align: center; }
+
+/* Hoja de calificación: una columna por tarea */
+.grading-table {
+  min-width: 720px;
+}
+
+.grading-table th small {
+  color: var(--muted-soft);
+  font-weight: 500;
+}
+
+.grading-table td:first-child,
+.grading-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  min-width: 190px;
+}
+
+.grading-table th:first-child { background: var(--paper-deep); }
+
+.grade-final {
+  border-color: var(--navy-700);
+  font-weight: 700;
+}
+
+.student-picker {
+  width: auto;
+  min-width: 280px;
+  min-height: 46px;
+  padding: 10px 44px 10px 14px;
+}
+
+/* Fila de estudiante en la vista de notas */
+.grade-breakdown {
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   Credenciales verificables
+   ========================================================================== */
+.credential-list {
+  display: grid;
+  gap: 20px;
+}
+
+.credential-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  padding: 24px 26px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.credential-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.credential-qr img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.credential-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--navy-900);
+}
+
+.credential-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credential-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.credential-hash {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.credential-hash small {
+  color: var(--muted-soft);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.credential-hash code {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.credential-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.credential-audit {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+
+/* Verificador público */
+.verify-result {
+  margin-top: 24px;
+  padding: 24px 26px;
+  border: 1px solid var(--line-soft);
+  border-left: 4px solid var(--navy-700);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.verify-result.verify-ok { border-left-color: var(--green-700); }
+.verify-result.verify-warn { border-left-color: var(--amber-700); }
+.verify-result.verify-bad { border-left-color: var(--red-700); }
+
+.verify-result-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.verify-result-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.verify-result-head strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--navy-900);
+  letter-spacing: 0.04em;
+}
+
+.verify-result-head span {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.verify-icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--navy-700);
+}
+
+.verify-ok .verify-icon { background: var(--green-700); }
+.verify-warn .verify-icon { background: var(--amber-700); }
+.verify-bad .verify-icon { background: var(--red-700); }
+
+.verify-table {
+  width: 100%;
+  margin-top: 18px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.verify-table th,
+.verify-table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+
+.verify-table th {
+  color: var(--muted-soft);
+  font-weight: 600;
+  width: 190px;
+}
+
+.verify-table td { color: var(--ink); }
+.verify-table code { font-size: 12px; word-break: break-all; }
+
+.verify-note {
+  margin: 16px 0 0;
+  color: var(--red-700);
+  font-size: 14px;
+}
+
 /* ==========================================================================
    Admin: details summary for collapsed histories
    ========================================================================== */

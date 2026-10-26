@@ -15,8 +15,11 @@ function notificationIcon(type: string): string {
 }
 
 function notificationsBanner(account: Account): string {
-  const list = listActiveNotificationsFor(account.role).slice(0, 2);
-  if (list.length === 0) return "";
+  const all = listActiveNotificationsFor(account.role, account.id).filter(
+    (n) => !(n.audience === account.id && n.readAt),
+  );
+  if (all.length === 0) return "";
+  const list = all.slice(0, 3);
   return `<aside class="notifications-banner">
     ${list
       .map(
@@ -30,6 +33,7 @@ function notificationsBanner(account: Account): string {
         </div>`,
       )
       .join("")}
+    ${all.length > list.length ? `<a class="notifications-more" href="#notifications">Ver las ${all.length} notificaciones &rarr;</a>` : `<a class="notifications-more" href="#notifications">Ver todas las notificaciones &rarr;</a>`}
   </aside>`;
 }
 

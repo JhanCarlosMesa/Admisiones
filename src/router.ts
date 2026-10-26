@@ -15,6 +15,12 @@ import { renderProgramChangeView } from "./views/program-change.view";
 import { renderPrerequisitesView } from "./views/prerequisites.view";
 import { renderFaqView } from "./views/faq.view";
 import { renderGestionBpmView } from "./views/gestion-bpm.view";
+import { renderNotificationsView } from "./views/notifications.view";
+import { renderGradingView } from "./views/grading.view";
+import { renderStudentGradesView } from "./views/student-grades.view";
+import { renderCredentialsView } from "./views/credentials.view";
+import { renderIssuanceView } from "./views/issuance.view";
+import { renderVerifyView } from "./views/verify.view";
 import { renderNotFoundView } from "./views/not-found.view";
 
 function parseHash(): { path: string; query: URLSearchParams; programId?: string } {
@@ -36,6 +42,12 @@ export function route(): void {
   if (path === "reset") return renderResetView(query.get("token") ?? "");
   if (path === "public") return renderPublicView();
 
+  // Verificación pública de credenciales: no requiere sesión.
+  if (path === "verify") {
+    void renderVerifyView(query.get("code") ?? "");
+    return;
+  }
+
   if (path === "pensum") {
     const id = programId ?? query.get("id") ?? "";
     if (!id) {
@@ -56,6 +68,8 @@ export function route(): void {
 
   if (path === "home") return renderHomeView(account);
   if (path === "profile") return renderProfileView(account);
+  if (path === "notifications") return renderNotificationsView(account);
+  if (path === "grades") return renderStudentGradesView(account);
 
   if (path === "enrollment") {
     if (account.role !== "Aspirante") {
@@ -71,6 +85,30 @@ export function route(): void {
       return;
     }
     return renderAdminView(account);
+  }
+
+  if (path === "grading") {
+    if (account.role !== "Staff") {
+      location.hash = "home";
+      return;
+    }
+    return renderGradingView(account, query);
+  }
+
+  if (path === "credentials") {
+    if (account.role !== "Estudiante") {
+      location.hash = "home";
+      return;
+    }
+    return renderCredentialsView(account);
+  }
+
+  if (path === "issuance") {
+    if (account.role !== "Staff") {
+      location.hash = "home";
+      return;
+    }
+    return renderIssuanceView(account);
   }
 
   if (path === "registration") {

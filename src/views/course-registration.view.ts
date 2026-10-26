@@ -13,7 +13,10 @@ import {
   cancel,
   creditsInUse,
   enroll,
+  enrollInWaitlist,
+  evaluateEnrollment,
   getActiveEnrollments,
+  getWaitlistForStudent,
 } from "../services/enrollment.service";
 import { listByApplicant } from "../services/admissions.service";
 
@@ -51,12 +54,28 @@ function offeringCard(
   course: Course,
   isEnrolled: boolean,
   seats: number,
+  waitlistPosition: number,
+  blockedNote: string,
 ): string {
-  const actionCell = isEnrolled
-    ? `<span class="status-badge status-good">Matriculada</span>`
-    : seats <= 0
-      ? `<span class="status-badge status-bad">Sin cupo</span>`
-      : `<button class="enroll-button" data-offering="${offering.id}" type="button">Matricular &rarr;</button>`;
+  let actionCell: string;
+  if (isEnrolled) {
+    actionCell = `<span class="status-badge status-good">Matriculada</span>`;
+  } else if (seats <= 0) {
+    actionCell = waitlistPosition > 0
+      ? `<span class="status-badge status-warn">En lista de espera &middot; pos. ${waitlistPosition}</span>`
+      : `<button class="enroll-button waitlist-button" data-waitlist="${offering.id}" type="button">Entrar a lista de espera &rarr;</button>`;
+  } else if (blockedNote) {
+    actionCell = `<span class="status-badge status-bad" title="${blockedNote}">Bloqueada</span>`;
+  } else {
+    actionCell = `<button class="enroll-button" data-offering="${offering.id}" type="button">Matricular &rarr;</button>`;
+  }
+
+  const prerequisites = course.prerequisites ?? [];
+  const prereqNote = prerequisites.length
+    ? `<p class="enrollment-prereq">Prerrequisitos: ${prerequisites.join(", ")}</p>`
+    : "";
+  const blockNote = blockedNote ? `<p class="enrollment-blocked">${blockedNote}</p>` : "";
+
   return `<article class="pensum-subject-card enrollment-card ${TYPE_CLASS[course.type]}">
     <div class="pensum-subject-head">
       <span class="pensum-subject-code">${course.code}</span>
@@ -65,6 +84,8 @@ function offeringCard(
     </div>
     <h4 class="pensum-subject-name">${course.name}</h4>
     <p class="pensum-subject-description">${course.description}</p>
+    ${prereqNote}
+    ${blockNote}
     <div class="pensum-subject-meta enrollment-meta">
       <span class="pensum-subject-meta-item"><b>${course.credits}</b><small>cr&eacute;ditos</small></span>
       <span class="pensum-subject-meta-item"><b>${course.hours}</b><small>h/semana</small></span>
@@ -81,6 +102,8 @@ function semesterSection(
   semester: number,
   offerings: Array<{ offering: CourseOffering; course: Course }>,
   enrolledIds: Set<string>,
+  waitlistPositions: Map<string, number>,
+  studentId: string,
 ): string {
   const credits = offerings.reduce((sum, o) => sum + o.course.credits, 0);
   const hours = offerings.reduce((sum, o) => sum + o.course.hours, 0);
@@ -97,9 +120,47 @@ function semesterSection(
       </div>
     </header>
     <div class="pensum-subjects-grid">
-      ${offerings.map(({ offering, course }) => offeringCard(offering, course, enrolledIds.has(offering.id), availableSeats(offering))).join("")}
+      ${offerings
+        .map(({ offering, course }) => {
+          const isEnrolled = enrolledIds.has(offering.id);
+          const evaluation = isEnrolled
+            ? null
+            : evaluateEnrollment(studentId, offering.id);
+          const blockedNote =
+            evaluation && evaluation.reason === "prerrequisitos" ? evaluation.message : "";
+          return offeringCard(
+            offering,
+            course,
+            isEnrolled,
+            availableSeats(offering),
+            waitlistPositions.get(offering.id) ?? 0,
+            blockedNote,
+          );
+        })
+        .join("")}
     </div>
   </section>`;
+}
+
+function waitlistSection(items: ReturnType<typeof getWaitlistForStudent>): string {
+  const waiting = items.filter((item) => item.status === "En espera");
+  if (waiting.length === 0) return "";
+  return `<h2 class="pensum-section-title">Mi lista de espera</h2>
+    <div class="pensum-subjects-grid">
+      ${waiting
+        .map(
+          (item) => `<article class="pensum-subject-card enrollment-card waitlist-card">
+            <div class="pensum-subject-head">
+              <span class="pensum-subject-code">${item.courseCode}</span>
+              <span class="status-badge status-warn">Posici&oacute;n ${item.position}</span>
+            </div>
+            <h4 class="pensum-subject-name">${item.courseName}</h4>
+            <p class="pensum-subject-description">${item.professor} &middot; ${item.day} ${item.time}</p>
+            <p class="enrollment-prereq">Si se libera un cupo te asignamos la materia autom&aacute;ticamente y recibes una notificaci&oacute;n.</p>
+          </article>`,
+        )
+        .join("")}
+    </div>`;
 }
 
 export function renderRegistrationView(account: Account): void {
@@ -126,6 +187,8 @@ export function renderRegistrationView(account: Account): void {
   const enrolled = getActiveEnrollments(account.id, period.id);
   const enrolledOfferingIds = new Set(enrolled.map((item) => item.offeringId));
   const usedCredits = creditsInUse(account.id, period.id);
+  const waitlist = getWaitlistForStudent(account.id);
+  const waitlistPositions = new Map(waitlist.map((item) => [item.offeringId, item.position]));
 
   // Group offerings by semester, using the course's semester field
   const offeringsByCourse = new Map(offerings.map((o) => [o.courseId, o]));
@@ -170,6 +233,8 @@ export function renderRegistrationView(account: Account): void {
             semester,
             groupedBySemester.get(semester) ?? [],
             enrolledOfferingIds,
+            waitlistPositions,
+            account.id,
           ),
         )
         .join("");
@@ -197,12 +262,13 @@ export function renderRegistrationView(account: Account): void {
         <div>
           <span class="eyebrow">Matr&iacute;cula &middot; Periodo ${period.name}</span>
           <h1>Matr&iacute;cula de materias</h1>
-          <p>Programa: <strong>${program?.name ?? admission.programId}</strong>. L&iacute;mite por periodo: ${MAX_CREDITS_PER_PERIOD} cr&eacute;ditos. Elige las materias que cursar&aacute;s este semestre.</p>
+          <p>Programa: <strong>${program?.name ?? admission.programId}</strong>. L&iacute;mite por periodo: ${MAX_CREDITS_PER_PERIOD} cr&eacute;ditos. Elige las materias que cursar&aacute;s este semestre. Las materias con prerrequisitos aparecen con el c&oacute;digo que debes tener aprobado.</p>
         </div>
       </div>
       <div id="form-message" class="form-message"></div>
       <h2 class="pensum-section-title">Mi matr&iacute;cula actual</h2>
       ${enrolledHtml}
+      ${waitlistSection(waitlist)}
       <h2 class="pensum-section-title">Oferta acad&eacute;mica &middot; Pensum de ${program?.name ?? "tu programa"}</h2>
       ${summaryHtml}
       ${legendHtml}
@@ -221,6 +287,24 @@ export function renderRegistrationView(account: Account): void {
         setFormMessage(result.message, "error");
         return;
       }
+      renderRegistrationView(account);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-waitlist]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const offeringId = button.dataset.waitlist;
+      if (!offeringId) return;
+      const result = enrollInWaitlist({
+        studentId: account.id,
+        studentEmail: account.email,
+        studentName: `${account.firstName} ${account.lastName}`,
+        offeringId,
+      });
+      if (!result.ok) {
+        setFormMessage(result.message, "error");
+        return;
+      }
+      setFormMessage(`Te anotaste en la lista de espera, posición ${result.position}.`, "success");
       renderRegistrationView(account);
     });
   });

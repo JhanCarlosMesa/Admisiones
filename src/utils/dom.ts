@@ -8,10 +8,17 @@ function buildNav(account?: Account): string {
   if (account.role === "Aspirante") links.push('<a href="#enrollment">Mi solicitud</a>');
   if (account.role === "Estudiante") {
     links.push('<a href="#registration">Matr&iacute;cula</a>');
+    links.push('<a href="#grades">Mis notas</a>');
+    links.push('<a href="#credentials">Mis credenciales</a>');
     links.push('<a href="#history">Historial</a>');
   }
-  if (account.role === "Staff") links.push('<a href="#admin">Panel de admisiones</a>');
+  if (account.role === "Staff") {
+    links.push('<a href="#admin">Panel de admisiones</a>');
+    links.push('<a href="#grading">Tareas y notas</a>');
+    links.push('<a href="#issuance">Emisi&oacute;n</a>');
+  }
   links.push('<a href="#gestion">Indicadores de gesti&oacute;n</a>');
+  links.push('<a href="#notifications">Notificaciones</a>');
   links.push('<a href="#profile">Perfil</a>');
   return `<nav class="topbar-nav" aria-label="Navegaci\u00f3n del portal">${links.join("")}</nav>`;
 }

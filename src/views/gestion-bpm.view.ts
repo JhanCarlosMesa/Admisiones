@@ -1,5 +1,8 @@
-import type { Account, Course, CourseType, Program } from "../types";
+import type { Account, Assignment, Course, CourseType, Program, WaitlistEntry } from "../types";
 import { renderShell } from "../utils/dom";
+import { readList } from "../data/store";
+import { STORAGE_KEYS } from "../data/keys";
+import { MIN_GRADE, MAX_GRADE, graduationProgress } from "../services/grades.service";
 import { listAll as listAllApplications, listByApplicant } from "../services/admissions.service";
 import { listAllProgramChanges } from "../services/program-changes.service";
 import { listAllPrerequisites } from "../services/prerequisites.service";
@@ -189,6 +192,8 @@ function renderResumen(): string {
   const estados = [
     { entidad: "Admisi&oacute;n", estados: "Radicada &rarr; En revisi&oacute;n &rarr; Admitido / Rechazado", nota: "Al ser Admitido, la cuenta pasa de Aspirante a Estudiante." },
     { entidad: "Matr&iacute;cula", estados: "Matriculada &rarr; Cancelada", nota: "Cancelar una materia libera el cupo." },
+    { entidad: "Calificaci&oacute;n", estados: "Sin nota &rarr; Aprobada / Reprobada", nota: "El Staff registra la nota; el estudiante recibe la notificaci&oacute;n." },
+    { entidad: "Lista de espera", estados: "En espera &rarr; Promovido", nota: "Al liberarse un cupo, el sistema asigna la materia al primero en la fila." },
     { entidad: "Cambio de programa", estados: "Solicitada &rarr; En revisi&oacute;n &rarr; Aprobada / Rechazada", nota: "Decisi&oacute;n manual de Staff." },
     { entidad: "Homologaci&oacute;n", estados: "Pendiente &rarr; Aprobada / Rechazada", nota: "Decisi&oacute;n manual de Staff." },
     { entidad: "Token de recuperaci&oacute;n", estados: "Vigente &rarr; Usado / Expirado", nota: "Expira a los 30 minutos." },
@@ -281,6 +286,13 @@ interface KpiSnapshot {
   // Académicos
   cargaDocenteProm: number;
   coberturaProgramasPct: number;
+  acadTotalCalificadas: number;
+  acadPromedio: number;
+  acadIndiceReprobacionPct: number;
+  acadTasaAprobacionPct: number;
+  waitlistTotal: number;
+  tareasTotal: number;
+  estudiantesMatriculados: number;
   // Contenido
   eventsOcupacion: { title: string; pct: number; enrolled: number; capacity: number; type: string; date: string }[];
   faqByCategory: { category: string; count: number }[];
@@ -354,6 +366,23 @@ function computeSnapshot(): KpiSnapshot {
   const programsWithApps = new Set(apps.map((a) => a.programId));
   const coberturaProgramasPct = programs.length === 0 ? 0 : (programsWithApps.size / programs.length) * 100;
 
+  // Académicos: promedio, reprobación y aprobación sobre materias calificadas
+  const gradedEnrollments = listAllEnrollments().filter((e) => e.grade !== undefined);
+  const acadTotalCalificadas = gradedEnrollments.length;
+  const acadPromedio = acadTotalCalificadas
+    ? gradedEnrollments.reduce((sum, e) => sum + (e.grade ?? 0), 0) / acadTotalCalificadas
+    : 0;
+  const reprobadas = gradedEnrollments.filter((e) => (e.grade ?? 0) < MIN_GRADE).length;
+  const acadIndiceReprobacionPct = pctNum(reprobadas, acadTotalCalificadas);
+  const acadTasaAprobacionPct = pctNum(acadTotalCalificadas - reprobadas, acadTotalCalificadas);
+  const waitlistTotal = readList<WaitlistEntry>(STORAGE_KEYS.waitlist).filter(
+    (w) => w.status === "En espera",
+  ).length;
+  const tareasTotal = readList<Assignment>(STORAGE_KEYS.assignments).length;
+  const estudiantesMatriculados = new Set(
+    listAllEnrollments().filter((e) => e.status !== "Cancelada").map((e) => e.studentId),
+  ).size;
+
   const events = listAllEvents();
   const eventsOcupacion = events.map((e) => ({
     title: e.title,
@@ -393,6 +422,13 @@ function computeSnapshot(): KpiSnapshot {
     prTasaAprobacionPct,
     cargaDocenteProm,
     coberturaProgramasPct,
+    acadTotalCalificadas,
+    acadPromedio,
+    acadIndiceReprobacionPct,
+    acadTasaAprobacionPct,
+    waitlistTotal,
+    tareasTotal,
+    estudiantesMatriculados,
     eventsOcupacion,
     faqByCategory,
     faqTotal: faq.length,
@@ -424,7 +460,12 @@ function renderIndicadores(): string {
   const acadCards = [
     { value: s.cargaDocenteProm > 0 ? `${round1(s.cargaDocenteProm)}` : "—", label: "Cursos por docente (prom.)" },
     { value: `${s.coberturaProgramasPct.toFixed(0)}%`, label: "Cobertura de programas" },
-    { value: s.admDecididas > 0 ? `${s.admRechazados}` : "—", label: "Solicitudes rechazadas" },
+    { value: s.acadPromedio > 0 ? s.acadPromedio.toFixed(2) : "—", label: "Promedio institucional" },
+    { value: s.acadTotalCalificadas > 0 ? `${s.acadIndiceReprobacionPct.toFixed(1)}%` : "—", label: "Índice de reprobación" },
+    { value: s.acadTasaAprobacionPct > 0 ? `${s.acadTasaAprobacionPct.toFixed(1)}%` : "—", label: "Tasa de aprobación" },
+    { value: String(s.estudiantesMatriculados), label: "Estudiantes matriculados" },
+    { value: String(s.tareasTotal), label: "Tareas registradas" },
+    { value: String(s.waitlistTotal), label: "En lista de espera" },
   ];
   const camCards = [
     { value: s.pcTotalDecided > 0 ? `${s.pcTasaAprobacionPct.toFixed(1)}%` : "—", label: "Aprobaci&oacute;n cambios de carrera" },
@@ -859,6 +900,16 @@ function renderReglasYMejora(): string {
     { regla: "Cr&eacute;ditos m&aacute;ximos por periodo", valor: `M&aacute;ximo ${MAX_CREDITS_PER_PERIOD} cr&eacute;ditos`, ubicacion: "enrollment.service.ts &mdash; MAX_CREDITS_PER_PERIOD" },
     { regla: "Cupo por curso ofertado", valor: `${CAPACITY_PER_OFFERING} cupos por oferta`, ubicacion: "data/seed.ts &mdash; capacity" },
     { regla: "Duplicidad de matr&iacute;cula", valor: "No se permite matricular dos veces la misma materia en el mismo periodo", ubicacion: "enrollment.service.ts &mdash; enroll()" },
+    { regla: "Prerrequisitos", valor: "La materia exige tener aprobadas las materias que la anteceden en el pensum", ubicacion: "enrollment.service.ts &mdash; missingPrerequisites()" },
+    { regla: "Homologaci&oacute;n como prerrequisito", valor: "Una homologaci&oacute;n externa aprobada tambi&eacute;n cumple el prerrequisito", ubicacion: "enrollment.service.ts &mdash; satisfiedCourseCodes()" },
+    { regla: "Repetici&oacute;n de materia", valor: "No se puede volver a cursar una materia ya aprobada", ubicacion: "enrollment.service.ts &mdash; alreadyApprovedCourse()" },
+    { regla: "Escala de calificaci&oacute;n", valor: `Notas de 0.0 a ${MAX_GRADE.toFixed(1)}. Aprobaci&oacute;n desde ${MIN_GRADE.toFixed(1)}`, ubicacion: "grades.service.ts &mdash; MIN_GRADE" },
+    { regla: "Promedio ponderado", valor: "Se pondera por cr&eacute;ditos de cada materia", ubicacion: "grades.service.ts &mdash; gradeAverage()" },
+    { regla: "Lista de espera", valor: "Si no hay cupo, el estudiante entra en espera y recibe el cupo si se libera", ubicacion: "enrollment.service.ts &mdash; promoteFromWaitlist()" },
+    { regla: "Tareas por materia", valor: "Cada tarea tiene un porcentaje de peso; la nota final es el promedio ponderado", ubicacion: "assignments.service.ts &mdash; recalculateFinalGrade()" },
+    { regla: "Nota final oficial", valor: "Solo se oficializa cuando todas las tareas tienen nota; antes es provisional", ubicacion: "assignments.service.ts &mdash; recalculateFinalGrade()" },
+    { regla: "Peso total de tareas", valor: "El peso de las tareas de una materia no debe pasar de 100%", ubicacion: "assignments.service.ts &mdash; totalWeight()" },
+    { regla: "Alta y baja de estudiantes", valor: "El Staff inscribe o retira estudiantes del curso; la baja libera el cupo", ubicacion: "grading.view.ts &mdash; enroll() / cancel()" },
     { regla: "Choque de horario", valor: "Mismo d&iacute;a + solapamiento de franja horaria contra materias activas", ubicacion: "enrollment.service.ts &mdash; timesOverlap()" },
     { regla: "Solicitud de admisi&oacute;n &uacute;nica", valor: "No se permite nueva solicitud si hay una activa (estado distinto de Rechazado)", ubicacion: "admissions.service.ts &mdash; hasActiveApplication()" },
     { regla: "Cambio de programa &uacute;nico", valor: "No se permite nueva solicitud si hay una Solicitada o En revisi&oacute;n", ubicacion: "program-changes.service.ts &mdash; hasPendingProgramChange()" },
@@ -872,6 +923,9 @@ function renderReglasYMejora(): string {
   const estados = [
     { entidad: "Admisi&oacute;n", estados: ["Radicada", "En revisi&oacute;n", "Admitido", "Rechazado"], badge: ["status-neutral", "status-warn", "status-good", "status-bad"] },
     { entidad: "Matr&iacute;cula", estados: ["Matriculada", "Cancelada"], badge: ["status-good", "status-bad"] },
+    { entidad: "Calificaci&oacute;n", estados: ["Sin nota", "Aprobada (>= 3.0)", "Reprobada (< 3.0)"], badge: ["status-neutral", "status-good", "status-bad"] },
+    { entidad: "Lista de espera", estados: ["En espera", "Promovido", "Cancelado"], badge: ["status-warn", "status-good", "status-neutral"] },
+    { entidad: "Tarea", estados: ["Sin nota", "Calificada"], badge: ["status-neutral", "status-good"] },
     { entidad: "Cambio de programa", estados: ["Solicitada", "En revisi&oacute;n", "Aprobada", "Rechazada"], badge: ["status-neutral", "status-warn", "status-good", "status-bad"] },
     { entidad: "Homologaci&oacute;n", estados: ["Pendiente", "Aprobada", "Rechazada"], badge: ["status-warn", "status-good", "status-bad"] },
     { entidad: "Token de recuperaci&oacute;n", estados: ["Vigente", "Usado / Expirado"], badge: ["status-good", "status-neutral"] },
@@ -1002,7 +1056,7 @@ function renderHelpCta(): string {
   </article>`;
 }
 
-function renderGraduationRequirements(program: Program | undefined): string {
+function renderGraduationRequirements(program: Program | undefined, account?: Account): string {
   if (!program) {
     return `<section style="margin-bottom:24px;">
       <div class="section-heading"><span>04</span><div><h2 style="font-family:var(--font-display);font-size:22px;color:var(--navy-900);margin:0 0 6px;">Requisitos para graduarte</h2><p class="section-lead" style="margin:0;">A&uacute;n no tienes un programa asignado. Estos son los requisitos generales para graduarte en cualquier carrera.</p></div></div>
@@ -1035,6 +1089,12 @@ function renderGraduationRequirements(program: Program | undefined): string {
     `Estar al d&iacute;a con los compromisos financieros y acad&eacute;micos.`,
   ].filter((r): r is string => r !== null);
 
+  const progress = account ? graduationProgress(account.id, program.id) : undefined;
+  const progressBlock = progress
+    ? `<div class="progress-bar" style="margin-bottom:10px;"><span style="width:${progress.percent}%;"></span></div>
+       <p style="margin:0 0 18px;font-size:14px;color:var(--muted);">Has aprobado <strong>${progress.earnedCredits}</strong> de ${totalCredits} cr&eacute;ditos (${progress.percent}%). Promedio actual: <strong>${progress.average.toFixed(2)}</strong>. ${progress.canGraduate ? "Cumples los requisitos de cr&eacute;ditos para graduarte." : `Te faltan ${progress.pendingCredits} cr&eacute;ditos por aprobar.`}</p>`
+    : "";
+
   return `<section style="margin-bottom:24px;">
     <div class="section-heading"><span>04</span><div><h2 style="font-family:var(--font-display);font-size:22px;color:var(--navy-900);margin:0 0 6px;">Requisitos para graduarte de ${program.name}</h2><p class="section-lead" style="margin:0;">${program.description}</p></div></div>
     <div class="profile-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px;">
@@ -1042,6 +1102,7 @@ function renderGraduationRequirements(program: Program | undefined): string {
       <article><b>${totalHours}</b><span>Horas</span></article>
       <article><b>${semesters}</b><span>Semestres</span></article>
     </div>
+    ${progressBlock}
     <ul style="margin:0;padding-left:22px;color:var(--ink);font-size:15.5px;line-height:1.7;">
       ${requirements.map((r) => `<li>${r}</li>`).join("")}
     </ul>
@@ -1136,7 +1197,7 @@ function renderEstudianteBody(account: Account): string {
       ${renderSimpleProcessStep(4, "Graduaci&oacute;n", "Estudiante &rarr; Staff acad&eacute;mico", graduacionSteps)}
     </section>
 
-    ${renderGraduationRequirements(program)}
+    ${renderGraduationRequirements(program, account)}
 
     ${renderHelpCta()}
     ${renderRecoveryNotice()}

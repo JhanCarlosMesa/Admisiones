@@ -67,6 +67,8 @@ export interface Course {
   hours: number;
   semester: number;
   type: CourseType;
+  /** Códigos de las materias que deben estar aprobadas para cursar esta. */
+  prerequisites?: string[];
 }
 
 export interface CourseOffering {
@@ -95,6 +97,46 @@ export interface Enrollment {
   periodId: string;
   status: EnrollmentStatus;
   createdAt: string;
+  /** Calificación en escala 0–5. Se registra al cerrar el periodo. */
+  grade?: number;
+  gradedAt?: string;
+}
+
+export type WaitlistStatus = "En espera" | "Promovido" | "Cancelado";
+
+export interface WaitlistEntry {
+  id: string;
+  studentId: string;
+  studentEmail: string;
+  studentName: string;
+  offeringId: string;
+  createdAt: string;
+  status: WaitlistStatus;
+}
+
+/** Tarea o evaluación de una materia en un periodo. */
+export interface Assignment {
+  id: string;
+  offeringId: string;
+  courseId: string;
+  periodId: string;
+  title: string;
+  description: string;
+  /** Porcentaje que esta tarea aporta a la nota final de la materia (0–100). */
+  weight: number;
+  dueDate?: string;
+  createdAt: string;
+}
+
+/** Nota de un estudiante en una tarea. Escala 0–5, igual que la nota final. */
+export interface AssignmentGrade {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  enrollmentId: string;
+  value: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ProgramChangeStatus = "Solicitada" | "En revisión" | "Aprobada" | "Rechazada";
@@ -142,6 +184,7 @@ export interface Notification {
   type: NotificationType;
   createdAt: string;
   expiresAt?: string;
+  readAt?: string;
 }
 
 export interface CampusEvent {
@@ -176,4 +219,56 @@ export interface FaqItem {
 
 export interface ThemePreferences {
   theme: "light" | "dark";
+}
+
+// ------------------------------------------------------------------
+// Credenciales verificables (blockchain)
+//
+// Principio: el contenido real (payload) NUNCA viaja a la cadena.
+// A la cadena solo van el hash, una referencia opaca, el emisor,
+// el sello de tiempo y la firma institucional.
+// ------------------------------------------------------------------
+
+export type CredentialType =
+  | "ACTA_GRADO"
+  | "CERTIFICADO_NOTAS"
+  | "CONSTANCIA_MATRICULA"
+  | "HOMOLOGACION"
+  | "ACTA_ADMISION"
+  | "MICROCREDENCIAL";
+
+export type AnchorStatus = "Pendiente" | "Anclado" | "Fallido" | "Revocado";
+
+export interface Credential {
+  id: string;
+  type: CredentialType;
+  /** Código corto que el estudiante comparte. Ej: 7F3K2D */
+  code: string;
+  /** Folio institucional legible. Ej: UNAC-2026-AG-000145 */
+  reference: string;
+  studentId?: string;
+  programId?: string;
+  periodId?: string;
+  /** Hash SHA-256 con dominio del payload canónico. */
+  payloadHash: string;
+  /** Contenido real del documento. Fuera de la cadena. */
+  payload: Record<string, unknown>;
+  status: AnchorStatus;
+  /** Identificador del anclaje en la red. */
+  anchorId?: string;
+  /** Firma institucional del hash. */
+  signature?: string;
+  error?: string;
+  createdAt: string;
+  anchoredAt?: string;
+  issuedBy?: string;
+}
+
+export interface AnchorAudit {
+  id: string;
+  credentialId: string;
+  action: "SOLICITADO" | "FIRMADO" | "ANCLADO" | "RECHAZADO" | "REVOCADO";
+  actor: string;
+  detail: string;
+  createdAt: string;
 }

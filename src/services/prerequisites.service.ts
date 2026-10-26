@@ -1,6 +1,7 @@
 import type { ExternalPrerequisite, PrerequisiteStatus } from "../types";
 import { generateId, readList, writeList } from "../data/store";
 import { STORAGE_KEYS } from "../data/keys";
+import { notifyUser } from "./notifications.service";
 
 export function listAllPrerequisites(): ExternalPrerequisite[] {
   return readList<ExternalPrerequisite>(STORAGE_KEYS.prerequisites).sort(
@@ -42,6 +43,14 @@ export function createPrerequisite(input: CreatePrerequisiteInput): ExternalPrer
   const list = listAllPrerequisites();
   list.push(record);
   writeList(STORAGE_KEYS.prerequisites, list);
+
+  notifyUser(
+    input.studentId,
+    "Homologación en revisión",
+    `Declaraste ${record.courseCode} (${record.courseName}) como materia cursada en otra institución. Te avisaremos cuando el equipo académico decida.`,
+    "info",
+  );
+
   return record;
 }
 
@@ -61,5 +70,15 @@ export function updatePrerequisiteStatus(
   };
   list[idx] = updated;
   writeList(STORAGE_KEYS.prerequisites, list);
+
+  notifyUser(
+    updated.studentId,
+    status === "Aprobada" ? "Homologación aprobada" : "Homologación rechazada",
+    status === "Aprobada"
+      ? `La materia ${updated.courseCode} quedó homologada y ya cuenta para tu avance y para desbloquear los prerrequisitos que la requieren. ${updated.reviewNote ?? ""}`
+      : `La homologación de ${updated.courseCode} no fue aprobada. ${updated.reviewNote ?? ""}`,
+    status === "Aprobada" ? "success" : "danger",
+  );
+
   return updated;
 }

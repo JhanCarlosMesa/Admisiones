@@ -1,4 +1,4 @@
-import type { Account, AdmissionApplication, CampusEvent, Course, CourseOffering, Enrollment, FaqItem, Notification, Period, Program, Testimonial } from "../types";
+import type { Account, AdmissionApplication, Assignment, AssignmentGrade, CampusEvent, Course, CourseOffering, Enrollment, FaqItem, Notification, Period, Program, Testimonial } from "../types";
 import { generateId, readList, writeList } from "./store";
 import { STORAGE_KEYS } from "./keys";
 import { hashPassword, randomSalt } from "../utils/crypto";
@@ -421,6 +421,196 @@ const SLOTS: Array<{ start: string; end: string }> = [
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+/**
+ * Prerrequisitos por código de materia: cada materia que se lista exige haber
+ * aprobado las que aparecen en su array antes de poder matricularse.
+ */
+const PREREQUISITES: Record<string, string[]> = {
+  // Ingeniería de Sistemas
+  "ISI-201": ["ISI-101"],
+  "ISI-301": ["ISI-201"],
+  "ISI-302": ["ISI-201"],
+  "ISI-401": ["ISI-301", "ISI-304"],
+  "ISI-501": ["ISI-401"],
+  "ISI-601": ["ISI-501"],
+  "ISI-702": ["ISI-502"],
+  "ISI-801": ["ISI-701", "ISI-702"],
+  "ISI-901": ["ISI-801"],
+  "ISI-1001": ["ISI-901"],
+  // Administración de Empresas
+  "ADM-201": ["ADM-103"],
+  "ADM-301": ["ADM-201"],
+  "ADM-302": ["ADM-102"],
+  "ADM-401": ["ADM-301"],
+  "ADM-402": ["ADM-302"],
+  "ADM-501": ["ADM-401"],
+  "ADM-601": ["ADM-501"],
+  "ADM-701": ["ADM-502", "ADM-504"],
+  "ADM-801": ["ADM-701"],
+  // Contaduría Pública
+  "CON-201": ["CON-101"],
+  "CON-301": ["CON-201"],
+  "CON-401": ["CON-301"],
+  "CON-501": ["CON-401"],
+  "CON-601": ["CON-501"],
+  "CON-702": ["CON-601"],
+  "CON-801": ["CON-702"],
+  // Educación
+  "EDU-201": ["EDU-101"],
+  "EDU-301": ["EDU-203"],
+  "EDU-401": ["EDU-301"],
+  "EDU-501": ["EDU-401"],
+  "EDU-601": ["EDU-402"],
+  "EDU-701": ["EDU-601", "EDU-702"],
+  "EDU-801": ["EDU-701"],
+  // Psicología
+  "PSI-201": ["PSI-101"],
+  "PSI-301": ["PSI-201"],
+  "PSI-401": ["PSI-203"],
+  "PSI-501": ["PSI-401"],
+  "PSI-601": ["PSI-501"],
+  "PSI-701": ["PSI-601"],
+  "PSI-801": ["PSI-701"],
+  "PSI-1001": ["PSI-801"],
+  // Enfermería
+  "ENF-201": ["ENF-102"],
+  "ENF-301": ["ENF-201"],
+  "ENF-401": ["ENF-301"],
+  "ENF-501": ["ENF-401"],
+  "ENF-601": ["ENF-501"],
+  "ENF-701": ["ENF-601"],
+  "ENF-801": ["ENF-701"],
+  // Comunicación
+  "COM-201": ["COM-101"],
+  "COM-301": ["COM-203"],
+  "COM-401": ["COM-301"],
+  "COM-501": ["COM-401"],
+  "COM-601": ["COM-501"],
+  "COM-701": ["COM-601"],
+  "COM-801": ["COM-701"],
+  // Ingeniería Industrial
+  "IIN-201": ["IIN-102"],
+  "IIN-301": ["IIN-202"],
+  "IIN-401": ["IIN-301"],
+  "IIN-501": ["IIN-401"],
+  "IIN-601": ["IIN-501"],
+  "IIN-701": ["IIN-601"],
+  "IIN-801": ["IIN-701"],
+  "IIN-1001": ["IIN-801"],
+  // Derecho
+  "DER-201": ["DER-101"],
+  "DER-301": ["DER-203"],
+  "DER-401": ["DER-301"],
+  "DER-501": ["DER-401"],
+  "DER-601": ["DER-501"],
+  "DER-701": ["DER-601"],
+  "DER-801": ["DER-701"],
+  "DER-1001": ["DER-801"],
+  // Teología
+  "TEO-201": ["TEO-101"],
+  "TEO-301": ["TEO-103"],
+  "TEO-401": ["TEO-303"],
+  "TEO-501": ["TEO-401"],
+  "TEO-601": ["TEO-501"],
+  "TEO-701": ["TEO-601"],
+  "TEO-801": ["TEO-701"],
+};
+
+/** Códigos de las materias cuyo cupo se reduce para poder demostrar la lista de espera. */
+const LIMITED_CAPACITY: Record<string, number> = {
+  "ISI-303": 1,
+};
+
+/** Docentes asignados a las ofertas del periodo activo. */
+const PROFESSORS = [
+  "Dra. Martha Londoño",
+  "Dr. Andrés Quintero",
+  "Mg. Carolina Restrepo",
+  "Dr. Fabián Morales",
+  "Lic. Natalia Guzmán",
+  "Dr. Hernán Ospina",
+];
+
+// ------------------------------------------------------------------
+// Datos de la cohorte de prueba
+// ------------------------------------------------------------------
+
+/** Estudiantes generados por cada programa. */
+const STUDENTS_PER_PROGRAM = 10;
+
+/** Nombres de la cohorte. Los dos primeros son las cuentas destacadas. */
+const STUDENT_NAMES: Array<[string, string]> = [
+  ["Sofía", "Cardona"],
+  ["Andrés", "Quintero"],
+  ["Valeria", "Henao"],
+  ["Julián", "Álvarez"],
+  ["Carolina", "Pineda"],
+  ["Sebastián", "Ramírez"],
+  ["Isabella", "Vélez"],
+  ["Nicolás", "Bedoya"],
+  ["Mariana", "Cortés"],
+  ["Tomás", "Guerrero"],
+];
+
+/** Las dos cuentas destacadas del programa de Ingeniería de Sistemas. */
+const FEATURED_NAMES: Array<[string, string]> = [
+  ["Valentina", "Rojas"],
+  ["Mateo", "Salazar"],
+];
+
+const FEATURED_EMAILS = ["valentina.rojas@unac.edu.co", "mateo.salazar@unac.edu.co"];
+
+/** Notas fijas de la cuenta destacada: incluye una reprobada para ver el impacto. */
+const FEATURED_GRADES: Record<string, number> = {
+  "ISI-101": 4.4,
+  "ISI-102": 3.8,
+  "ISI-103": 4.1,
+  "ISI-104": 4.6,
+  "ISI-201": 4.2,
+  "ISI-202": 2.8,
+  "ISI-203": 3.5,
+  "ISI-204": 4.0,
+};
+
+/** Materia con un solo cupo, para poder demostrar la lista de espera. */
+const LIMITED_CAPACITY_COURSE = "ISI-303";
+
+/** Tareas que se crean en cada materia del periodo activo. */
+const TASK_TEMPLATES = [
+  { title: "Parcial 1", description: "Primera evaluación del periodo.", weight: 30, dueInDays: 21 },
+  { title: "Parcial 2", description: "Segunda evaluación del periodo.", weight: 30, dueInDays: 45 },
+  { title: "Trabajo práctico", description: "Aplicación de los contenidos del semestre.", weight: 40, dueInDays: 60 },
+];
+
+/** Quita acentos y pasa a minúsculas para construir correos. */
+function slug(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Nota determinista a partir de una semilla: el mismo estudiante siempre
+ * recebe la misma nota, así el seed es reproducible entre cargas.
+ */
+function seededUnit(seed: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+function seededGrade(seed: string, min = 1.6, max = 5): number {
+  const unit = seededUnit(seed);
+  // El 15% de los estudiantes reprueba: los valores suben de 3.0.
+  const raw = unit < 0.15 ? min + unit * (2.9 - min) : 3.0 + unit * (max - 3.0);
+  return Math.round(raw * 10) / 10;
+}
+
 function syncCatalog(): void {
   const programs = readList<Program>(STORAGE_KEYS.programs);
   const courses = readList<Course>(STORAGE_KEYS.courses);
@@ -457,6 +647,12 @@ function syncCatalog(): void {
     }
   });
 
+  // Los prerrequisitos se derivan del código, así que siempre están vigentes.
+  mergedCourses.forEach((course) => {
+    if (!course.code) return;
+    course.prerequisites = PREREQUISITES[course.code] ?? [];
+  });
+
   // Add any new courses from the seed that don't already exist (matched by code)
   PROGRAM_SEEDS.forEach((programSeed) => {
     programSeed.courses.forEach((course, index) => {
@@ -474,6 +670,7 @@ function syncCatalog(): void {
           hours: course.hours,
           semester: course.semester,
           type: course.type,
+          prerequisites: PREREQUISITES[course.code] ?? [],
         });
       }
     });
@@ -483,7 +680,7 @@ function syncCatalog(): void {
   writeList(STORAGE_KEYS.courses, mergedCourses);
 }
 
-const SCHEMA_VERSION = "5";
+const SCHEMA_VERSION = "8";
 
 export async function seed(): Promise<void> {
   if (localStorage.getItem(STORAGE_KEYS.seeded) === SCHEMA_VERSION) {
@@ -501,6 +698,12 @@ export async function seed(): Promise<void> {
   localStorage.removeItem(STORAGE_KEYS.programChanges);
   localStorage.removeItem(STORAGE_KEYS.prerequisites);
   localStorage.removeItem(STORAGE_KEYS.notifications);
+  localStorage.removeItem(STORAGE_KEYS.assignments);
+  localStorage.removeItem(STORAGE_KEYS.assignmentGrades);
+  localStorage.removeItem(STORAGE_KEYS.waitlist);
+  localStorage.removeItem(STORAGE_KEYS.credentials);
+  localStorage.removeItem(STORAGE_KEYS.anchorAudit);
+  localStorage.removeItem(STORAGE_KEYS.anchors);
   localStorage.removeItem(STORAGE_KEYS.events);
   localStorage.removeItem(STORAGE_KEYS.testimonials);
   localStorage.removeItem(STORAGE_KEYS.faq);
@@ -529,12 +732,14 @@ export async function seed(): Promise<void> {
         hours: course.hours,
         semester: course.semester,
         type: course.type,
+        prerequisites: PREREQUISITES[course.code] ?? [],
       });
     });
   });
   writeList(STORAGE_KEYS.courses, courses);
 
   const periods: Period[] = [
+    { id: "per-2025-2", name: "2025-2", active: false },
     { id: "per-2026-1", name: "2026-1", active: false },
     { id: "per-2026-2", name: "2026-2", active: true },
   ];
@@ -550,31 +755,47 @@ export async function seed(): Promise<void> {
       day,
       startTime: slot.start,
       endTime: slot.end,
-      capacity: 25,
-      professor: "Por asignar",
+      capacity: LIMITED_CAPACITY[course.code] ?? 25,
+      professor: PROFESSORS[index % PROFESSORS.length],
     };
   });
 
-  const sistemasCourses = courses.filter((item) => item.programId === "prog-sistemas");
-  const pastOfferings: CourseOffering[] = sistemasCourses.slice(0, 2).map((course, index) => ({
-    id: generateId(`hist-off-${course.id}`),
-    courseId: course.id,
-    periodId: "per-2026-1",
-    day: DAYS[index],
-    startTime: "07:00",
-    endTime: "09:00",
-    capacity: 25,
-    professor: "Por asignar",
-  }));
+  // Ofertas de periodos ya cerrados: semestre 1 en 2025-2 y semestres 2 y 3 en 2026-1.
+  // Así cada estudiante tiene un historial real con notas en las que approved.
+  const pastOfferings: CourseOffering[] = [];
+  courses.forEach((course) => {
+    if (course.semester === 1) {
+      pastOfferings.push({
+        id: generateId(`hist-off-1-${course.id}`),
+        courseId: course.id,
+        periodId: "per-2025-2",
+        day: DAYS[course.semester % DAYS.length],
+        startTime: "07:00",
+        endTime: "09:00",
+        capacity: 25,
+        professor: PROFESSORS[course.semester % PROFESSORS.length],
+      });
+    }
+    if (course.semester === 2 || course.semester === 3) {
+      pastOfferings.push({
+        id: generateId(`hist-off-${course.semester}-${course.id}`),
+        courseId: course.id,
+        periodId: "per-2026-1",
+        day: DAYS[course.semester % DAYS.length],
+        startTime: course.semester === 2 ? "09:00" : "11:00",
+        endTime: course.semester === 2 ? "11:00" : "13:00",
+        capacity: 25,
+        professor: PROFESSORS[(course.semester + 1) % PROFESSORS.length],
+      });
+    }
+  });
   writeList(STORAGE_KEYS.offerings, [...offerings, ...pastOfferings]);
 
-  const staffSalt = randomSalt();
+const staffSalt = randomSalt();
   const applicantSalt = randomSalt();
-  const studentSalt = randomSalt();
-  const [staffHash, applicantHash, studentHash] = await Promise.all([
+  const [staffHash, applicantHash] = await Promise.all([
     hashPassword("Admisiones2026", staffSalt),
     hashPassword("Prueba12345", applicantSalt),
-    hashPassword("Estudiante123", studentSalt),
   ]);
 
   const staffAccount: Account = {
@@ -603,35 +824,197 @@ export async function seed(): Promise<void> {
     role: "Aspirante",
     createdAt: new Date().toISOString(),
   };
-  const studentAccount: Account = {
-    id: generateId("acc-std"),
-    firstName: "Valentina",
-    lastName: "Rojas",
-    documentType: "CC",
-    documentNumber: "TEST-VAL-001",
-    email: "valentina.rojas@unac.edu.co",
-    phone: "3000000002",
-    passwordHash: studentHash,
-    passwordSalt: studentSalt,
-    role: "Estudiante",
-    createdAt: new Date().toISOString(),
-  };
-  writeList(STORAGE_KEYS.accounts, [staffAccount, applicantAccount, studentAccount]);
 
-  const admittedApplication: AdmissionApplication = {
-    id: generateId("ADM"),
-    applicantId: studentAccount.id,
-    applicantEmail: studentAccount.email,
-    programId: "prog-sistemas",
-    level: "Pregrado",
-    city: "Medellín",
-    modality: "Presencial",
-    motivation: "Quiero formarme como ingeniera de sistemas.",
-    status: "Admitido",
-    createdAt: new Date(Date.now() - DAY_MS * 10).toISOString(),
-    reviewedAt: new Date(Date.now() - DAY_MS * 5).toISOString(),
-    reviewNote: "Cumple los requisitos de admisión.",
-  };
+  // ------------------------------------------------------------------
+  // Estudiantes: 10 por programa, cada uno con su semestre actual,
+  // historial aprobado y tareas calificadas en el periodo activo.
+  // ------------------------------------------------------------------
+  const accounts: Account[] = [staffAccount, applicantAccount];
+  const applications: AdmissionApplication[] = [];
+  const enrollments: Enrollment[] = [];
+  const assignments: Assignment[] = [];
+  const assignmentGrades: AssignmentGrade[] = [];
+
+  const offeringByCoursePeriod = new Map<string, CourseOffering>();
+  [...offerings, ...pastOfferings].forEach((offering) => {
+    offeringByCoursePeriod.set(`${offering.courseId}|${offering.periodId}`, offering);
+  });
+
+  // Las tareas se crean una sola vez por materia (no por estudiante):
+  // cada oferta del periodo activo tiene su propio conjunto de evaluaciones.
+  const assignmentsByOffering = new Map<string, Assignment[]>();
+  courses.forEach((course) => {
+    if (course.type !== "Obligatoria") return;
+    if (course.semester < 1 || course.semester > 4) return;
+    if (course.code === LIMITED_CAPACITY_COURSE) return;
+    const offering = offeringByCoursePeriod.get(`${course.id}|per-2026-2`);
+    if (!offering) return;
+    const createdAt = new Date(Date.now() - DAY_MS * 5).toISOString();
+    const list = TASK_TEMPLATES.map((template) => {
+      const assignment: Assignment = {
+        id: generateId("TSK"),
+        offeringId: offering.id,
+        courseId: course.id,
+        periodId: "per-2026-2",
+        title: template.title,
+        description: template.description,
+        weight: template.weight,
+        dueDate: new Date(Date.now() + DAY_MS * template.dueInDays).toISOString(),
+        createdAt,
+      };
+      assignments.push(assignment);
+      return assignment;
+    });
+    assignmentsByOffering.set(offering.id, list);
+  });
+
+  let phoneCounter = 10;
+  for (const program of programs) {
+    const programCourses = courses.filter((item) => item.programId === program.id);
+    const prefix =
+      programCourses[0]?.code.split("-")[0]?.toLowerCase() ?? program.id.replace("prog-", "");
+
+    for (let index = 0; index < STUDENTS_PER_PROGRAM; index += 1) {
+      const isFeatured = program.id === "prog-sistemas" && index < 2;
+      const namePair = isFeatured ? FEATURED_NAMES[index] : STUDENT_NAMES[index];
+      const firstName = namePair[0];
+      const lastName = namePair[1];
+      const email = isFeatured
+        ? FEATURED_EMAILS[index]
+        : `${slug(firstName)}.${slug(lastName)}.${prefix}@unac.edu.co`;
+
+      const salt = randomSalt();
+      const hash = await hashPassword("Estudiante123", salt);
+      const account: Account = {
+        id: generateId(`acc-${prefix}-${index}`),
+        firstName,
+        lastName,
+        documentType: "CC",
+        documentNumber: `TEST-${prefix.toUpperCase()}-${String(index + 1).padStart(3, "0")}`,
+        email,
+        phone: `3000${String(phoneCounter).padStart(6, "0")}`,
+        passwordHash: hash,
+        passwordSalt: salt,
+        role: "Estudiante",
+        createdAt: new Date(Date.now() - DAY_MS * (200 - index * 5)).toISOString(),
+      };
+      phoneCounter += 1;
+      accounts.push(account);
+
+      const semester = isFeatured ? 3 : 1 + (index % 4);
+      const admittedDaysAgo = 200 - index * 5;
+      applications.push({
+        id: generateId("ADM"),
+        applicantId: account.id,
+        applicantEmail: account.email,
+        programId: program.id,
+        level: program.level,
+        city: "Medellín",
+        modality: program.modality,
+        motivation: `Quiero formarme como profesional en ${program.name}.`,
+        status: "Admitido",
+        createdAt: new Date(Date.now() - DAY_MS * (admittedDaysAgo + 10)).toISOString(),
+        reviewedAt: new Date(Date.now() - DAY_MS * admittedDaysAgo).toISOString(),
+        reviewNote: "Cumple los requisitos de admisión.",
+      });
+
+      // Historial: obligatorias de los semestres anteriores, ya calificadas.
+      for (let past = 1; past < semester; past += 1) {
+        const periodId = past === 1 ? "per-2025-2" : "per-2026-1";
+        const pastCourses = programCourses.filter(
+          (item) => item.semester === past && item.type === "Obligatoria",
+        );
+        pastCourses.forEach((course) => {
+          const offering = offeringByCoursePeriod.get(`${course.id}|${periodId}`);
+          if (!offering) return;
+          const grade = isFeatured
+            ? FEATURED_GRADES[course.code]
+            : seededGrade(`${account.email}|${course.code}`);
+          const createdAt = new Date(Date.now() - DAY_MS * (past === 1 ? 240 : 120)).toISOString();
+          enrollments.push({
+            id: generateId("MAT"),
+            studentId: account.id,
+            offeringId: offering.id,
+            periodId,
+            status: "Matriculada",
+            createdAt,
+            grade,
+            gradedAt: new Date(Date.now() - DAY_MS * (past === 1 ? 180 : 60)).toISOString(),
+          });
+        });
+      }
+
+      // Periodo activo: obligatorias del semestre actual, con tareas y notas.
+      // La materia de cupo 1 se deja fuera: solo la ocupa el estudiante destacado,
+      // así la cuenta de prueba puede entrar a la lista de espera.
+      const currentCourses = programCourses.filter(
+        (item) => item.semester === semester && item.type === "Obligatoria",
+      ).filter((item) => item.code !== LIMITED_CAPACITY_COURSE);
+      currentCourses.forEach((course) => {
+        const offering = offeringByCoursePeriod.get(`${course.id}|per-2026-2`);
+        if (!offering) return;
+        const enrollmentId = generateId("MAT");
+        const createdAt = new Date(Date.now() - DAY_MS * 5).toISOString();
+
+        const courseAssignments = assignmentsByOffering.get(offering.id) ?? [];
+
+        let weighted = 0;
+        let gradedWeight = 0;
+        courseAssignments.forEach((assignment, taskIndex) => {
+          // Se califican los dos primeros parciales; el trabajo práctico queda
+          // pendiente para la mitad de la cohorte, así el Staff tiene trabajo real.
+          const fullyGraded = seededUnit(`${account.email}|${course.code}|full`) > 0.5;
+          if (taskIndex === 2 && !fullyGraded) return;
+          const value = seededGrade(`${account.email}|${course.code}|${assignment.title}`, 1.5, 5);
+          assignmentGrades.push({
+            id: generateId("NTG"),
+            assignmentId: assignment.id,
+            studentId: account.id,
+            enrollmentId,
+            value,
+            createdAt,
+            updatedAt: createdAt,
+          });
+          weighted += value * assignment.weight;
+          gradedWeight += assignment.weight;
+        });
+        const totalWeight = courseAssignments.reduce((sum, item) => sum + item.weight, 0);
+        // La nota final solo existe cuando todas las tareas tienen nota.
+        const finalGrade =
+          gradedWeight >= totalWeight ? Math.round((weighted / totalWeight) * 100) / 100 : undefined;
+
+        enrollments.push({
+          id: enrollmentId,
+          studentId: account.id,
+          offeringId: offering.id,
+          periodId: "per-2026-2",
+          status: "Matriculada",
+          createdAt,
+          grade: finalGrade,
+          gradedAt: finalGrade === undefined ? undefined : new Date().toISOString(),
+        });
+      });
+    }
+  }
+
+  // La materia de cupo 1 la ocupa el segundo estudiante destacado, para poder
+  // demostrar la lista de espera desde la cuenta de prueba.
+  const limitedOffering = offerings.find((item) => {
+    const course = courses.find((c) => c.id === item.courseId);
+    return course?.code === LIMITED_CAPACITY_COURSE;
+  });
+  const featured = accounts.find((item) => item.email === FEATURED_EMAILS[1]);
+  if (limitedOffering && featured) {
+    enrollments.push({
+      id: generateId("MAT"),
+      studentId: featured.id,
+      offeringId: limitedOffering.id,
+      periodId: "per-2026-2",
+      status: "Matriculada",
+      createdAt: new Date(Date.now() - DAY_MS * 3).toISOString(),
+    });
+  }
+
   const pendingApplication: AdmissionApplication = {
     id: generateId("ADM"),
     applicantId: applicantAccount.id,
@@ -644,17 +1027,13 @@ export async function seed(): Promise<void> {
     status: "Radicada",
     createdAt: new Date().toISOString(),
   };
-  writeList(STORAGE_KEYS.admissions, [admittedApplication, pendingApplication]);
 
-  const historyEnrollments: Enrollment[] = pastOfferings.map((offering) => ({
-    id: generateId("MAT"),
-    studentId: studentAccount.id,
-    offeringId: offering.id,
-    periodId: "per-2026-1",
-    status: "Matriculada",
-    createdAt: new Date(Date.now() - DAY_MS * 90).toISOString(),
-  }));
-  writeList(STORAGE_KEYS.enrollments, historyEnrollments);
+  writeList(STORAGE_KEYS.accounts, accounts);
+  writeList(STORAGE_KEYS.admissions, [...applications, pendingApplication]);
+  writeList(STORAGE_KEYS.enrollments, enrollments);
+  writeList(STORAGE_KEYS.assignments, assignments);
+  writeList(STORAGE_KEYS.assignmentGrades, assignmentGrades);
+
 
   const notifications: Notification[] = [
     {
@@ -687,8 +1066,8 @@ export async function seed(): Promise<void> {
     {
       id: generateId("NOT"),
       audience: "Staff",
-      title: "Panel de admisiones",
-      body: "Tienes nuevas solicitudes de admisión y cambios de programa pendientes de revisión.",
+      title: "Nueva solicitud de admisión",
+      body: "Jhanc Mesa radicó una solicitud para Administración de Empresas. Ya está disponible en el panel de admisiones.",
       type: "info",
       createdAt: new Date().toISOString(),
     },

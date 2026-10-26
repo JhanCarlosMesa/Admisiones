@@ -1,6 +1,7 @@
 import type { ProgramChangeRequest, ProgramChangeStatus } from "../types";
 import { generateId, readList, writeList } from "../data/store";
 import { STORAGE_KEYS } from "../data/keys";
+import { notifyUser } from "./notifications.service";
 
 export function listAllProgramChanges(): ProgramChangeRequest[] {
   return readList<ProgramChangeRequest>(STORAGE_KEYS.programChanges).sort(
@@ -46,6 +47,14 @@ export function createProgramChangeRequest(input: CreateProgramChangeInput): Pro
   const list = listAllProgramChanges();
   list.push(request);
   writeList(STORAGE_KEYS.programChanges, list);
+
+  notifyUser(
+    input.studentId,
+    "Solicitud de cambio de carrera recibida",
+    "El equipo académico revisará tu solicitud de cambio de programa y te avisará cuando decida.",
+    "info",
+  );
+
   return request;
 }
 
@@ -65,5 +74,13 @@ export function updateProgramChangeStatus(
   };
   list[idx] = updated;
   writeList(STORAGE_KEYS.programChanges, list);
+
+  notifyUser(
+    updated.studentId,
+    status === "Aprobada" ? "Cambio de carrera aprobado" : "Cambio de carrera rechazado",
+    updated.reviewNote ?? "",
+    status === "Aprobada" ? "success" : "danger",
+  );
+
   return updated;
 }

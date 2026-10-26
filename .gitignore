@@ -38,3 +38,8 @@ override.tf.json
 # AWS
 .aws/
 *.pem
+
+# Gateway blockchain
+gateway/.env
+gateway/keys/
+gateway/data/

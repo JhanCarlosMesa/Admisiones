@@ -4,6 +4,8 @@ import { decide, listAll, markUnderReview } from "../services/admissions.service
 import { getProgram } from "../services/catalog.service";
 import { listAllProgramChanges, updateProgramChangeStatus } from "../services/program-changes.service";
 import { listAllPrerequisites, updatePrerequisiteStatus } from "../services/prerequisites.service";
+import { listAllEnrollments } from "../services/enrollment.service";
+import { MAX_GRADE, MIN_GRADE } from "../services/grades.service";
 
 function admissionCard(_account: Account): string {
   const applications = listAll();
@@ -77,6 +79,22 @@ function prerequisitesCard(): string {
   </section>`;
 }
 
+function gradesCard(): string {
+  const enrollments = listAllEnrollments().filter((item) => item.status !== "Cancelada");
+  const graded = enrollments.filter((item) => item.grade !== undefined).length;
+  const failed = enrollments.filter((item) => item.grade !== undefined && item.grade < MIN_GRADE).length;
+  return `<section class="profile-section">
+    <header class="profile-section-header">
+      <span class="eyebrow">Registro de calificaciones</span>
+      <h2>Tareas y notas por materia</h2>
+    </header>
+    <p class="program-note" style="margin-bottom:16px;">Escala 0.0 a ${MAX_GRADE.toFixed(1)}. Aprobaci&oacute;n desde ${MIN_GRADE.toFixed(1)}. Hay ${enrollments.length} matr&iacute;culas registradas: ${graded} con nota final (${failed} reprobadas).</p>
+    <div class="form-footer" style="justify-content:flex-start;">
+      <a class="primary-button" href="#grading">Ir a tareas y calificaciones &rarr;</a>
+    </div>
+  </section>`;
+}
+
 export function renderAdminView(account: Account): void {
   renderShell(
     `<section class="enrollment-card">
@@ -84,12 +102,14 @@ export function renderAdminView(account: Account): void {
         <div>
           <span class="eyebrow">Staff de admisiones</span>
           <h1>Panel de control</h1>
-          <p>Gestiona solicitudes de admisi&oacute;n, cambios de carrera y declaraciones de prerrequisitos.</p>
+          <p>Gestiona solicitudes de admisi&oacute;n, cambios de carrera, declaraciones de prerrequisitos y calificaciones.</p>
         </div>
       </div>
+      <div id="form-message" class="form-message"></div>
       ${admissionCard(account)}
       ${programChangesCard()}
       ${prerequisitesCard()}
+      ${gradesCard()}
     </section>`,
     "Panel de admisiones",
     account,
@@ -128,4 +148,5 @@ export function renderAdminView(account: Account): void {
       renderAdminView(account);
     });
   });
+
 }
