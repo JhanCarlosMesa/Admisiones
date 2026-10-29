@@ -6,6 +6,7 @@
 #   validate -> terraform init -backend=false + validate + fmt
 #   plan     -> terraform plan (con AMI real)
 #   apply    -> terraform apply + (en paralelo) sync de dist/ al bucket S3
+#   upload   -> (manual) recompila el front-end y sube dist/ + gateway/ al bucket
 #   smoke    -> curl al endpoint público, valida que sirve la app
 #   destroy  -> terraform destroy automático (deja todo limpio)
 #
@@ -20,6 +21,7 @@ stages:
   - validate
   - plan
   - apply
+  - upload
   - smoke
   - destroy
 
@@ -138,6 +140,39 @@ upload-site:
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
+
+# ----------------------------------------------------------------------------
+# 4c) Upload manual: compila el front-end y sube TODO al bucket
+#     - dist/   -> s3://$S3_BUCKET/site/    (el sitio)
+#     - gateway/ -> s3://$S3_BUCKET/gateway/ (el gateway institucional)
+#
+# El bucket NO se hardcodea: el nombre real lo produce Terraform
+# (${var.project_name}-${cuenta}-${var.environment}) y llega por el dotenv
+# del job terraform-apply. Si se fijara aquí, el job fallaría contra un
+# bucket inexistente.
+#
+# Solo se sube el código del gateway: se excluyen .env, keys/ (llave privada)
+# y data/ (cadena local), que nunca deben salir de la máquina.
+# ----------------------------------------------------------------------------
+upload-app:
+  stage: upload
+  image: node:20
+  needs:
+    - job: terraform-apply
+      artifacts: true   # <- dotenv con $S3_BUCKET
+  script:
+    - npm ci
+    - npm run build
+    - pip3 install awscli --break-system-packages || (apt-get update && apt-get install -y awscli)
+    - echo "Subiendo dist/ a s3://$S3_BUCKET/site/"
+    - aws s3 sync dist/ "s3://$S3_BUCKET/site/" --delete --region us-east-2
+    - echo "Subiendo gateway/ a s3://$S3_BUCKET/gateway/"
+    - aws s3 sync gateway/ "s3://$S3_BUCKET/gateway/" --delete --region us-east-2 --exclude "node_modules/*" --exclude ".env" --exclude "keys/*" --exclude "data/*"
+    - aws s3 ls "s3://$S3_BUCKET/" --region us-east-2
+  when: manual
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
 
 # ----------------------------------------------------------------------------
 # 5) Smoke test: espera al user_data de la EC2 y verifica el HTML
