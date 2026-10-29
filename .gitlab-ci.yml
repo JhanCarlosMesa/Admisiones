@@ -102,8 +102,8 @@ terraform-apply:
     - terraform init -input=false
     - terraform apply -auto-approve plan.tfplan
     - |
-      APP_URL=$(terraform output -raw app_url)
-      S3_BUCKET=$(terraform output -raw s3_bucket)
+      APP_URL=$(terraform output -raw gateway_url)
+      S3_BUCKET=$(terraform output -raw s3_bucket_name_out)
       PUBLIC_IP=$(terraform output -raw public_ip)
       echo "APP_URL=$APP_URL"       > deploy.env
       echo "S3_BUCKET=$S3_BUCKET"   >> deploy.env
@@ -135,8 +135,8 @@ upload-site:
       artifacts: true
   script:
     - echo "Subiendo dist/ a s3://$S3_BUCKET/"
-    - aws s3 sync dist/ "s3://$S3_BUCKET/" --delete --region us-east-2
-    - aws s3 ls "s3://$S3_BUCKET/" --region us-east-2
+    - aws s3 sync dist/ "s3://$S3_BUCKET/site/" --delete --region us-east-2
+    - aws s3 ls "s3://$S3_BUCKET/site/" --region us-east-2
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH
