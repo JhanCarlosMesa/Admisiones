@@ -236,9 +236,12 @@ export class GatewayTransport implements AnchorTransport {
  *                         verificación son reales; solo el transporte se simula.
  * USE_GATEWAY = true   →  transporte HTTP contra el gateway institucional
  *                         (Fase 1), que es quien firma con la llave real.
+ *
+ * Se activa con la variable de entorno `VITE_USE_GATEWAY=true` y la dirección
+ * del gateway se ajusta con `VITE_GATEWAY_URL` (por defecto, puerto 3080).
  */
-const USE_GATEWAY = false;
-const GATEWAY_URL = "http://localhost:3080";
+const USE_GATEWAY = (import.meta.env?.VITE_USE_GATEWAY as string) === "true";
+const GATEWAY_URL = (import.meta.env?.VITE_GATEWAY_URL as string) || "http://localhost:3080";
 
 /**
  * Token de escritura del gateway.
